@@ -1,20 +1,22 @@
 package com.smartcommerce.service.imp;
 
-import at.favre.lib.crypto.bcrypt.BCrypt;
-import com.smartcommerce.dao.interfaces.UserDaoInterface;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.smartcommerce.dtos.response.LoginResponse;
 import com.smartcommerce.dtos.response.UserResponse;
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.DuplicateResourceException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.User;
+import com.smartcommerce.repositories.UserRepository;
 import com.smartcommerce.service.serviceInterface.UserService;
 import com.smartcommerce.utils.UserMapper;
-import lombok.AllArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import at.favre.lib.crypto.bcrypt.BCrypt;
+import lombok.AllArgsConstructor;
 
 /**
  * Service layer for User entity
@@ -25,7 +27,7 @@ import java.util.List;
 @AllArgsConstructor
 public class UserServiceImp implements UserService {
 
-    private UserDaoInterface userDao;
+    private UserRepository userRepository;
     private com.smartcommerce.security.JwtUtil jwtUtil;
 
     /**
@@ -41,8 +43,7 @@ public class UserServiceImp implements UserService {
         validateUser(user);
 
         // Check for duplicate email
-        User existingUser = userDao.getUserByEmail(user.getEmail());
-        if (existingUser != null) {
+        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
             throw new DuplicateResourceException("User", "email", user.getEmail());
         }
 
@@ -55,19 +56,8 @@ public class UserServiceImp implements UserService {
         String hashedPassword = BCrypt.withDefaults().hashToString(12, user.getPassword().toCharArray());
         user.setPassword(hashedPassword);
 
-        // Add user
-        boolean success = userDao.addUser(user);
-        if (!success) {
-            throw new BusinessException("Failed to create user");
-        }
-
-        // Retrieve and return the created user
-        User createdUser = userDao.getUserByEmail(user.getEmail());
-        if (createdUser == null) {
-            throw new BusinessException("User created but could not be retrieved");
-        }
-
-        return createdUser;
+        // Save and return user
+        return userRepository.save(user);
     }
 
     /**
@@ -77,7 +67,7 @@ public class UserServiceImp implements UserService {
      */
     @Transactional(readOnly = true)
     public List<User> getAllUsers() {
-        return userDao.getAllUsers();
+        return userRepository.findAll();
     }
 
     /**
@@ -89,11 +79,8 @@ public class UserServiceImp implements UserService {
      */
     @Transactional(readOnly = true)
     public User getUserById(int userId) {
-        User user = userDao.getUserById(userId);
-        if (user == null) {
-            throw new ResourceNotFoundException("User", "id", userId);
-        }
-        return user;
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
     }
 
     /**
@@ -109,11 +96,8 @@ public class UserServiceImp implements UserService {
             throw new BusinessException("Email cannot be empty");
         }
 
-        User user = userDao.getUserByEmail(email);
-        if (user == null) {
-            throw new ResourceNotFoundException("User", "email", email);
-        }
-        return user;
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
     }
 
     /**
@@ -128,20 +112,19 @@ public class UserServiceImp implements UserService {
      */
     public User updateUser(int userId, User userDetails) {
         // Check if user exists
-        User existingUser = userDao.getUserById(userId);
-        if (existingUser == null) {
-            throw new ResourceNotFoundException("User", "id", userId);
-        }
+        User existingUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         // Validate updated details
         validateUser(userDetails);
 
         // Check for duplicate email (if email is being changed)
         if (!existingUser.getEmail().equals(userDetails.getEmail())) {
-            User userWithEmail = userDao.getUserByEmail(userDetails.getEmail());
-            if (userWithEmail != null && userWithEmail.getUserId() != userId) {
-                throw new DuplicateResourceException("User", "email", userDetails.getEmail());
-            }
+            userRepository.findByEmail(userDetails.getEmail()).ifPresent(userWithEmail -> {
+                if (userWithEmail.getUserId() != userId) {
+                    throw new DuplicateResourceException("User", "email", userDetails.getEmail());
+                }
+            });
         }
 
         // Update user details
@@ -162,13 +145,7 @@ public class UserServiceImp implements UserService {
             existingUser.setRole(userDetails.getRole());
         }
 
-        // Perform update
-        boolean success = userDao.updateUser(existingUser);
-        if (!success) {
-            throw new BusinessException("Failed to update user");
-        }
-
-        return getUserById(userId);
+        return userRepository.save(existingUser);
     }
 
     /**
@@ -180,16 +157,11 @@ public class UserServiceImp implements UserService {
      */
     public void deleteUser(int userId) {
         // Check if user exists
-        User user = userDao.getUserById(userId);
-        if (user == null) {
+        if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
 
-        // Perform deletion
-        boolean success = userDao.deleteUser(userId);
-        if (!success) {
-            throw new BusinessException("Failed to delete user");
-        }
+        userRepository.deleteById(userId);
     }
 
     /**
@@ -256,10 +228,8 @@ public class UserServiceImp implements UserService {
         }
 
         // Find user by email
-        User user = userDao.getUserByEmail(email.trim().toLowerCase());
-        if (user == null) {
-            throw new ResourceNotFoundException("User", "email", email);
-        }
+        User user = userRepository.findByEmail(email.trim().toLowerCase())
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
 
         // Verify password with BCrypt
         BCrypt.Result result = BCrypt.verifyer()

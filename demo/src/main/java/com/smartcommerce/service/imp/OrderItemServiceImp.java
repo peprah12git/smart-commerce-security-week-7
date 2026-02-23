@@ -1,20 +1,21 @@
 package com.smartcommerce.service.imp;
 
-import com.smartcommerce.dao.interfaces.OrderDaoInterface;
-import com.smartcommerce.dao.interfaces.OrderItemDaoInterface;
-import com.smartcommerce.dao.interfaces.ProductDaoInterface;
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.Order;
 import com.smartcommerce.model.OrderItem;
 import com.smartcommerce.model.Product;
+import com.smartcommerce.repositories.OrderItemRepository;
+import com.smartcommerce.repositories.OrderRepository;
+import com.smartcommerce.repositories.ProductRepository;
 import com.smartcommerce.service.serviceInterface.OrderItemService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 /**
  * Service layer for OrderItem entity
@@ -24,32 +25,28 @@ import java.util.List;
 @Transactional
 public class OrderItemServiceImp implements OrderItemService {
 
-    private final OrderItemDaoInterface orderItemDao;
-    private final OrderDaoInterface orderDao;
-    private final ProductDaoInterface productDao;
+    private final OrderItemRepository orderItemRepository;
+    private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
 
     @Autowired
-    public OrderItemServiceImp(OrderItemDaoInterface orderItemDao,
-                               OrderDaoInterface orderDao,
-                               ProductDaoInterface productDao) {
-        this.orderItemDao = orderItemDao;
-        this.orderDao = orderDao;
-        this.productDao = productDao;
+    public OrderItemServiceImp(OrderItemRepository orderItemRepository,
+                               OrderRepository orderRepository,
+                               ProductRepository productRepository) {
+        this.orderItemRepository = orderItemRepository;
+        this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
     }
 
     @Override
     public OrderItem addOrderItem(OrderItem orderItem) {
         // Validate order exists
-        Order order = orderDao.getOrderById(orderItem.getOrderId());
-        if (order == null) {
-            throw new ResourceNotFoundException("Order", "id", orderItem.getOrderId());
-        }
+        Order order = orderRepository.findById(orderItem.getOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderItem.getOrderId()));
 
         // Validate product exists
-        Product product = productDao.getProductById(orderItem.getProductId());
-        if (product == null) {
-            throw new ResourceNotFoundException("Product", "id", orderItem.getProductId());
-        }
+        Product product = productRepository.findById(orderItem.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", orderItem.getProductId()));
 
         // Set unit price from product if not provided
         if (orderItem.getUnitPrice() == null) {
@@ -59,13 +56,7 @@ public class OrderItemServiceImp implements OrderItemService {
         // Set product name for convenience
         orderItem.setProductName(product.getProductName());
 
-        // Add order item
-        boolean success = orderItemDao.addOrderItem(orderItem);
-        if (!success) {
-            throw new BusinessException("Failed to add order item");
-        }
-
-        return orderItem;
+        return orderItemRepository.save(orderItem);
     }
 
     @Override
@@ -78,23 +69,17 @@ public class OrderItemServiceImp implements OrderItemService {
     @Transactional(readOnly = true)
     public List<OrderItem> getOrderItemsByOrderId(int orderId) {
         // Validate order exists
-        Order order = orderDao.getOrderById(orderId);
-        if (order == null) {
+        if (!orderRepository.existsById(orderId)) {
             throw new ResourceNotFoundException("Order", "id", orderId);
         }
 
-        return orderItemDao.getOrderItemsByOrderId(orderId);
+        return orderItemRepository.findByOrderId(orderId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public OrderItem getOrderItemById(int orderItemId) {
-        // Get all order items and find by ID (since DAO doesn't have getById)
-        // This is a workaround - ideally we'd add getOrderItemById to DAO
-        List<OrderItem> allItems = getAllOrderItems();
-        return allItems.stream()
-                .filter(item -> item.getOrderItemId() == orderItemId)
-                .findFirst()
+        return orderItemRepository.findById(orderItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("OrderItem", "id", orderItemId));
     }
 
@@ -113,41 +98,29 @@ public class OrderItemServiceImp implements OrderItemService {
         // Recalculate subtotal
         orderItem.setSubtotal(orderItem.getUnitPrice().multiply(new BigDecimal(quantity)));
 
-        // Note: This requires updating the DAO to support updates
-        // For now, we'll delete and recreate
-        orderItemDao.deleteOrderItem(orderItemId);
-        boolean success = orderItemDao.addOrderItem(orderItem);
-        if (!success) {
-            throw new BusinessException("Failed to update order item quantity");
-        }
-
-        return orderItem;
+        return orderItemRepository.save(orderItem);
     }
 
     @Override
     public void deleteOrderItem(int orderItemId) {
         // Verify order item exists
-        getOrderItemById(orderItemId);
-
-        boolean deleted = orderItemDao.deleteOrderItem(orderItemId);
-        if (!deleted) {
-            throw new BusinessException("Failed to delete order item");
+        if (!orderItemRepository.existsById(orderItemId)) {
+            throw new ResourceNotFoundException("OrderItem", "id", orderItemId);
         }
+
+        orderItemRepository.deleteById(orderItemId);
     }
 
     @Override
     public void deleteOrderItemsByOrderId(int orderId) {
         // Validate order exists
-        Order order = orderDao.getOrderById(orderId);
-        if (order == null) {
+        if (!orderRepository.existsById(orderId)) {
             throw new ResourceNotFoundException("Order", "id", orderId);
         }
 
         // Get all items for the order and delete them
-        List<OrderItem> items = orderItemDao.getOrderItemsByOrderId(orderId);
-        for (OrderItem item : items) {
-            orderItemDao.deleteOrderItem(item.getOrderItemId());
-        }
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        orderItemRepository.deleteAll(items);
     }
 
     @Override
@@ -155,16 +128,5 @@ public class OrderItemServiceImp implements OrderItemService {
     public BigDecimal calculateSubtotal(int orderItemId) {
         OrderItem orderItem = getOrderItemById(orderItemId);
         return orderItem.getUnitPrice().multiply(new BigDecimal(orderItem.getQuantity()));
-    }
-
-    /**
-     * Helper method to get all order items (for finding by ID)
-     */
-    private List<OrderItem> getAllOrderItems() {
-        // Get all orders and collect their items
-        List<Order> allOrders = orderDao.getAllOrders();
-        return allOrders.stream()
-                .flatMap(order -> orderItemDao.getOrderItemsByOrderId(order.getOrderId()).stream())
-                .toList();
     }
 }
