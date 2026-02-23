@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -310,5 +312,34 @@ public class OrderServiceImp implements OrderService {
         savedOrder.setUserName(user.getName());
         savedOrder.setOrderItems(orderItemRepository.findByOrderId(savedOrder.getOrderId()));
         return savedOrder;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Order> getAllOrders(Pageable pageable) {
+        Page<Order> ordersPage = orderRepository.findAll(pageable);
+        // Load order items for each order
+        ordersPage.forEach(order -> {
+            List<OrderItem> items = orderItemRepository.findByOrderId(order.getOrderId());
+            order.setOrderItems(items);
+        });
+        return ordersPage;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Order> getOrdersByUserId(int userId, Pageable pageable) {
+        // Validate user exists
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User", "id", userId);
+        }
+
+        Page<Order> ordersPage = orderRepository.findByUserId(userId, pageable);
+        // Load order items for each order
+        ordersPage.forEach(order -> {
+            List<OrderItem> items = orderItemRepository.findByOrderId(order.getOrderId());
+            order.setOrderItems(items);
+        });
+        return ordersPage;
     }
 }

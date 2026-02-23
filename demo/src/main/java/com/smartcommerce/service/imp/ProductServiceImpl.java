@@ -5,6 +5,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -269,6 +272,48 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public void invalidateProductCache() {
         // No cache with JPA/Spring Data - managed by JPA provider
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Product> getProductsWithFilters(Pageable pageable, ProductFilterDTO filters) {
+        // If no filters, use repository pagination directly
+        if (filters == null || !filters.hasFilters()) {
+            return productRepository.findAll(pageable);
+        }
+
+        // With filters, we need to fetch all, filter, then create a page
+        // Note: This is less efficient than database-level filtering
+        // For production, consider using Specifications or QueryDSL
+        List<Product> allProducts = productRepository.findAll();
+        List<Product> filteredProducts = applyFilters(allProducts, filters);
+
+        // Apply pagination manually
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), filteredProducts.size());
+        List<Product> pageContent = filteredProducts.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, filteredProducts.size());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Product> getProductsByCategory(String categoryName, Pageable pageable) {
+        if (categoryName == null || categoryName.trim().isEmpty()) {
+            throw new BusinessException("Category name cannot be empty");
+        }
+
+        return productRepository.findByCategoryName(categoryName, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Product> searchProducts(String searchTerm, Pageable pageable) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            throw new BusinessException("Search term cannot be empty");
+        }
+
+        return productRepository.searchProducts(searchTerm, pageable);
     }
 
     private void validateProduct(Product product) {

@@ -1,16 +1,27 @@
 package com.smartcommerce.repositories;
 
-import com.smartcommerce.model.Product;
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import com.smartcommerce.model.Product;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Integer> {
     
+    // Paginated methods
+    @Query("SELECT p FROM Product p JOIN Category c ON p.categoryId = c.categoryId WHERE c.categoryName = :categoryName")
+    Page<Product> findByCategoryName(@Param("categoryName") String categoryName, Pageable pageable);
+    
+    @Query("SELECT p FROM Product p WHERE p.productName LIKE %:term% OR p.description LIKE %:term%")
+    Page<Product> searchProducts(@Param("term") String term, Pageable pageable);
+    
+    // Non-paginated methods (kept for backward compatibility)
     @Query("SELECT p FROM Product p JOIN Category c ON p.categoryId = c.categoryId WHERE c.categoryName = :categoryName ORDER BY p.productName")
     List<Product> findByCategoryName(@Param("categoryName") String categoryName);
     

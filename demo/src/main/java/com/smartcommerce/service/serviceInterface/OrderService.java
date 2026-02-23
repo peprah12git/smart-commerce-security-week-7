@@ -2,6 +2,9 @@ package com.smartcommerce.service.serviceInterface;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.Order;
@@ -25,6 +28,14 @@ public interface OrderService {
     Order createOrder(Order order, List<OrderItem> orderItems);
 
     /**
+     * Retrieves all orders (paginated)
+     *
+     * @param pageable Pagination and sorting parameters
+     * @return Paginated orders
+     */
+    Page<Order> getAllOrders(Pageable pageable);
+
+    /**
      * Retrieves all orders
      *
      * @return List of all orders
@@ -39,6 +50,16 @@ public interface OrderService {
      * @throws ResourceNotFoundException if order not found
      */
     Order getOrderById(int orderId);
+
+    /**
+     * Retrieves all orders for a specific user (paginated)
+     *
+     * @param userId   User ID
+     * @param pageable Pagination and sorting parameters
+     * @return Paginated orders for the user
+     * @throws ResourceNotFoundException if user not found
+     */
+    Page<Order> getOrdersByUserId(int userId, Pageable pageable);
 
     /**
      * Retrieves all orders for a specific user

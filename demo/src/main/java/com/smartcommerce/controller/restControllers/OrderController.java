@@ -1,16 +1,38 @@
 package com.smartcommerce.controller.restControllers;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.smartcommerce.dtos.request.CreateOrderDTO;
 import com.smartcommerce.dtos.request.OrderItemDTO;
 import com.smartcommerce.dtos.request.UpdateOrderStatusDTO;
 import com.smartcommerce.dtos.response.OrderItemResponse;
 import com.smartcommerce.dtos.response.OrderResponse;
+import com.smartcommerce.dtos.response.PagedResponse;
 import com.smartcommerce.exception.ErrorResponse;
 import com.smartcommerce.exception.ValidationErrorResponse;
 import com.smartcommerce.model.Order;
 import com.smartcommerce.model.OrderItem;
 import com.smartcommerce.service.serviceInterface.OrderService;
 import com.smartcommerce.utils.OrderMapper;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,13 +41,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * REST Controller for Order management
@@ -104,6 +119,23 @@ public class OrderController {
     }
 
     /**
+     * Get all orders with pagination
+     * GET /api/orders/paged?page=0&size=10&sort=orderDate,desc
+     */
+    @Operation(summary = "Get all orders (paginated)", description = "Retrieves all orders with pagination. Default page size is 10, sorted by order date descending.")
+    @ApiResponse(responseCode = "200", description = "Paginated orders retrieved successfully")
+    @GetMapping("/paged")
+    public ResponseEntity<PagedResponse<OrderResponse>> getAllOrdersPaged(
+            @PageableDefault(size = 10, sort = "orderDate", direction = Sort.Direction.DESC) Pageable pageable) {
+        
+        Page<Order> ordersPage = orderService.getAllOrders(pageable);
+        Page<OrderResponse> responsePage = ordersPage.map(OrderMapper::toOrderResponse);
+        PagedResponse<OrderResponse> pagedResponse = PagedResponse.of(responsePage);
+
+        return ResponseEntity.ok(pagedResponse);
+    }
+
+    /**
      * Get order by ID
      * GET /api/orders/{orderId}
      */
@@ -141,6 +173,28 @@ public class OrderController {
         List<Order> orders = orderService.getOrdersByUserId(authenticatedUserId);
         List<OrderResponse> response = OrderMapper.toOrderResponseList(orders);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get orders by user ID with pagination
+     * GET /api/orders/user/{userId}/paged?page=0&size=10&sort=orderDate,desc
+     */
+    @Operation(summary = "Get orders by user (paginated)", description = "Retrieves paginated orders for a specific user. Default page size is 10, sorted by order date descending.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Paginated orders retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "User not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/user/{userId}/paged")
+    public ResponseEntity<PagedResponse<OrderResponse>> getOrdersByUserIdPaged(
+            @RequestAttribute("userId") Integer authenticatedUserId,
+            @PageableDefault(size = 10, sort = "orderDate", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        Page<Order> ordersPage = orderService.getOrdersByUserId(authenticatedUserId, pageable);
+        Page<OrderResponse> responsePage = ordersPage.map(OrderMapper::toOrderResponse);
+        PagedResponse<OrderResponse> pagedResponse = PagedResponse.of(responsePage);
+
+        return ResponseEntity.ok(pagedResponse);
     }
 
     /**

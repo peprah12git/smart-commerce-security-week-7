@@ -8,7 +8,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.smartcommerce.model.Inventory;
 import com.smartcommerce.repositories.InventoryRepository;
@@ -55,6 +58,13 @@ public class InventoryServiceImp implements InventoryServiceInterface {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<Inventory> getAllInventory(Pageable pageable) {
+        // For paginated results, skip cache and query database directly
+        return inventoryRepository.findAll(pageable);
+    }
+
+    @Override
     public List<Inventory> getAllInventory() {
         long now = System.currentTimeMillis();
 
@@ -69,6 +79,12 @@ public class InventoryServiceImp implements InventoryServiceInterface {
                 .collect(Collectors.toMap(Inventory::getProductId, i -> i));
         lastCacheUpdate = now;
         return new ArrayList<>(inventoryCache.values());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Inventory> getLowStockItems(int threshold, Pageable pageable) {
+        return inventoryRepository.findLowStockItems(threshold, pageable);
     }
 
     @Override
