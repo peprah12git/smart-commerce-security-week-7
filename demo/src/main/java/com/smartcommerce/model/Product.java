@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.util.List;
 
 @Entity
 @Table(name = "Products")
@@ -40,6 +41,18 @@ public class Product {
 
     @Transient
     private int quantityAvailable;
+
+    @OneToOne(mappedBy = "productId", cascade = CascadeType.ALL)
+    private Inventory inventory;
+
+    @OneToMany(mappedBy = "productId", cascade = CascadeType.ALL)
+    private List<OrderItem> orderItems;
+
+    @OneToMany(mappedBy = "productId", cascade = CascadeType.ALL)
+    private List<CartItem> cartItems;
+
+    @OneToMany(mappedBy = "productId", cascade = CascadeType.ALL)
+    private List<Review> reviews;
 
     public Product(String productName, String description, BigDecimal price, int categoryId) {
         this.productName = productName;

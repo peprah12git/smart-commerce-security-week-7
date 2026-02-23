@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 @Entity
 @Table(name = "Categories")
@@ -27,6 +28,9 @@ public class Category {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Timestamp createdAt;
+
+    @OneToMany(mappedBy = "categoryId", cascade = CascadeType.ALL)
+    private List<Product> products;
 
     public Category(String categoryName, String description) {
         this.categoryName = categoryName;
