@@ -1,20 +1,45 @@
 package com.smartcommerce.model;
 
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 
+@Entity
+@Table(name = "Products")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Product {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "product_id")
     private int productId;
-    private String productName;
-    private String description;
-    private BigDecimal price;
-    private int categoryId;
-    private String categoryName;
-    private Timestamp createdAt;
-    private int quantityAvailable;
 
-    public Product() {
-    }
+    @Column(name = "product_name", nullable = false)
+    private String productName;
+
+    private String description;
+
+    @Column(nullable = false)
+    private BigDecimal price;
+
+    @Column(name = "category_id")
+    private int categoryId;
+
+    @Transient
+    private String categoryName;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private Timestamp createdAt;
+
+    @Transient
+    private int quantityAvailable;
 
     public Product(String productName, String description, BigDecimal price, int categoryId) {
         this.productName = productName;
@@ -23,71 +48,10 @@ public class Product {
         this.categoryId = categoryId;
     }
 
-    public int getProductId() {
-        return productId;
-    }
-
-    public void setProductId(int productId) {
-        this.productId = productId;
-    }
-
-    public String getProductName() {
-        return productName;
-    }
-
-    public void setProductName(String productName) {
-        this.productName = productName;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
-
-    public int getCategoryId() {
-        return categoryId;
-    }
-
-    public void setCategoryId(int categoryId) {
-        this.categoryId = categoryId;
-    }
-
-    public String getCategoryName() {
-        return categoryName;
-    }
-
-    public void setCategoryName(String categoryName) {
-        this.categoryName = categoryName;
-    }
-
-    public Timestamp getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Timestamp createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public int getQuantityAvailable() {
-        return quantityAvailable;
-    }
-
     public void setQuantityAvailable(int quantityAvailable) {
         this.quantityAvailable = this.quantityAvailable + quantityAvailable;
     }
 
-    // For AdminDashboardController compatibility
     public int getQuantity() {
         return getQuantityAvailable();
     }
