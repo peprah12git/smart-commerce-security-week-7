@@ -9,7 +9,17 @@ spring:
       minimum-idle: 5
       connection-timeout: 30000
 
-#logging:
-#  level:
-#    root: WARN
-#    com.ecommerce: INFO
+  jpa:
+    hibernate:
+      ddl-auto: validate  # Don't auto-update schema in production
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: false
+    open-in-view: false
+
+logging:
+  level:
+    root: WARN
+    com.smartcommerce: INFO

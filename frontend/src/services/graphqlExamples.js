@@ -15,23 +15,19 @@ export const getCategories = async () => {
 };
 
 // PROTECTED QUERY - Requires JWT token
-export const getProducts = async (page = 0, size = 10) => {
+export const getProducts = async () => {
   const query = `
-    query GetProducts($page: Int, $size: Int) {
-      products(page: $page, size: $size) {
-        content {
-          productId
-          name
-          description
-          price
-          categoryId
-        }
-        totalElements
-        totalPages
+    query GetProducts {
+      products {
+        productId
+        productName
+        description
+        price
+        categoryId
       }
     }
   `;
-  return await graphqlQuery(query, { page, size });
+  return await graphqlQuery(query);
 };
 
 // PROTECTED MUTATION - Requires JWT token

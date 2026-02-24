@@ -3,6 +3,10 @@ package com.smartcommerce.controller.restControllers;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,12 +45,12 @@ import jakarta.validation.Valid;
 
 /**
  * REST Controller for Product management
- * Handles HTTP requests for product CRUD operations with pagination, sorting, and filtering
+ * Handles HTTP requests for product CRUD operations with sorting and filtering
  * Base URL: /api/products
  */
 @RestController
 @RequestMapping("/api/products")
-@Tag(name = "Products", description = "Product management API — CRUD, search, pagination, and filtering")
+@Tag(name = "Products", description = "Product management API — CRUD, search, sorting, and filtering")
 public class ProductController {
 
     private final ProductService productService;
@@ -111,11 +115,51 @@ public class ProductController {
     }
 
     /**
-     * Get products with pagination, sorting, and filtering
-     * GET /api/products?page=0&size=10&sortBy=price&sortDirection=ASC&category=Electronics&minPrice=100&maxPrice=1000&searchTerm=phone&inStock=true
+     * Get products with pagination, sorting and filtering
+     * GET /api/products/paged?page=0&size=10&sort=productName,asc&category=Electronics&minPrice=100&maxPrice=1000&searchTerm=phone&inStock=true
      *
-     * @param page          Page number (default: 0)
-     * @param size          Page size (default: 10, max: 100)
+     * @param pageable      Pagination parameters (page, size, sort) - defaults to page 0, size 10
+     * @param category      Filter by category name
+     * @param minPrice      Filter by minimum price
+     * @param maxPrice      Filter by maximum price
+     * @param searchTerm    Search in product name and description
+     * @param inStock       Filter by stock status (true=in stock, false=out of stock)
+     */
+    @Operation(summary = "Get products with pagination and filtering",
+            description = "Retrieves products with support for pagination, sorting, and multiple filter criteria. Default page size is 10.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Paginated product list retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request parameters",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/paged")
+    public ResponseEntity<PagedResponse<ProductResponse>> getProductsPaged(
+            @PageableDefault(size = 10, sort = "productId", direction = Sort.Direction.ASC) Pageable pageable,
+            @Parameter(description = "Filter by category name") @RequestParam(required = false) String category,
+            @Parameter(description = "Minimum price filter") @RequestParam(required = false) BigDecimal minPrice,
+            @Parameter(description = "Maximum price filter") @RequestParam(required = false) BigDecimal maxPrice,
+            @Parameter(description = "Search in product name and description") @RequestParam(required = false) String searchTerm,
+            @Parameter(description = "Filter by stock status") @RequestParam(required = false) Boolean inStock) {
+
+        ProductFilterDTO filters = new ProductFilterDTO(
+                category,
+                minPrice,
+                maxPrice,
+                searchTerm,
+                inStock
+        );
+
+        Page<Product> productsPage = productService.getProductsWithFilters(pageable, filters);
+        Page<ProductResponse> responsePage = productsPage.map(ProductMapper::toProductResponse);
+        PagedResponse<ProductResponse> pagedResponse = PagedResponse.of(responsePage);
+
+        return ResponseEntity.ok(pagedResponse);
+    }
+
+    /**
+     * Get products with sorting and filtering
+     * GET /api/products?sortBy=price&sortDirection=ASC&category=Electronics&minPrice=100&maxPrice=1000&searchTerm=phone&inStock=true
+     *
      * @param sortBy        Sort field (default: productId)
      *                      Options: productName, price, categoryName, quantity, createdAt, productId
      * @param sortDirection Sort direction (default: ASC)
@@ -126,19 +170,15 @@ public class ProductController {
      * @param searchTerm    Search in product name and description
      * @param inStock       Filter by stock status (true=in stock, false=out of stock)
      */
-    @Operation(summary = "Get products with pagination and filtering",
-            description = "Retrieves products with support for pagination, sorting, and multiple filter criteria")
+    @Operation(summary = "Get products with filtering",
+            description = "Retrieves products with support for sorting and multiple filter criteria")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Paginated product list retrieved successfully"),
+            @ApiResponse(responseCode = "200", description = "Product list retrieved successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid request parameters",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping
-    public ResponseEntity<PagedResponse<ProductResponse>> getProducts(
-            @Parameter(description = "Page number (0-indexed)", example = "0")
-            @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Page size (max 100)", example = "10")
-            @RequestParam(defaultValue = "10") int size,
+    public ResponseEntity<List<ProductResponse>> getProducts(
             @Parameter(description = "Sort field", example = "productId",
                     schema = @Schema(allowableValues = {"productName", "price", "categoryName", "quantity", "createdAt", "productId"}))
             @RequestParam(defaultValue = "productId") String sortBy,
@@ -150,7 +190,6 @@ public class ProductController {
             @Parameter(description = "Search in product name and description") @RequestParam(required = false) String searchTerm,
             @Parameter(description = "Filter by stock status") @RequestParam(required = false) Boolean inStock) {
 
-        // Create filter DTO
         ProductFilterDTO filters = new ProductFilterDTO(
                 category,
                 minPrice,
@@ -159,28 +198,10 @@ public class ProductController {
                 inStock
         );
 
-        // Get paginated and filtered products
-        List<Product> products = productService.getProductsWithPaginationAndFilters(
-                page, size, sortBy, sortDirection, filters
-        );
-
-        // Get total count for pagination
-        long totalElements = productService.countProductsWithFilters(filters);
-
-        // Convert to response DTOs
+        List<Product> products = productService.getProductsWithFilters(sortBy, sortDirection, filters);
         List<ProductResponse> productResponses = ProductMapper.toProductResponseList(products);
 
-        // Create paged response
-        PagedResponse<ProductResponse> response = new PagedResponse<>(
-                productResponses,
-                page,
-                size,
-                totalElements,
-                sortBy,
-                sortDirection
-        );
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(productResponses);
     }
 
     /**
@@ -220,6 +241,25 @@ public class ProductController {
     }
 
     /**
+     * Get products by category with pagination
+     * GET /api/products/category/{categoryName}/paged?page=0&size=10&sort=productName,asc
+     */
+    @Operation(summary = "Get products by category (paginated)", description = "Retrieves paginated products belonging to a specific category. Default page size is 10.")
+    @ApiResponse(responseCode = "200", description = "Paginated products retrieved successfully")
+    @GetMapping("/category/{categoryName}/paged")
+    public ResponseEntity<PagedResponse<ProductResponse>> getProductsByCategoryPaged(
+            @Parameter(description = "Category name", required = true, example = "Electronics")
+            @PathVariable String categoryName,
+            @PageableDefault(size = 10, sort = "productName", direction = Sort.Direction.ASC) Pageable pageable) {
+        
+        Page<Product> productsPage = productService.getProductsByCategory(categoryName, pageable);
+        Page<ProductResponse> responsePage = productsPage.map(ProductMapper::toProductResponse);
+        PagedResponse<ProductResponse> pagedResponse = PagedResponse.of(responsePage);
+
+        return ResponseEntity.ok(pagedResponse);
+    }
+
+    /**
      * Search products by name or description (without pagination)
      * GET /api/products/search?term={searchTerm}
      */
@@ -232,6 +272,25 @@ public class ProductController {
         List<Product> products = productService.searchProducts(term);
         List<ProductResponse> response = ProductMapper.toProductResponseList(products);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Search products by name or description with pagination
+     * GET /api/products/search/paged?term={searchTerm}&page=0&size=10&sort=productName,asc
+     */
+    @Operation(summary = "Search products (paginated)", description = "Searches for products by name or description keyword with pagination. Default page size is 10.")
+    @ApiResponse(responseCode = "200", description = "Paginated search results returned successfully")
+    @GetMapping("/search/paged")
+    public ResponseEntity<PagedResponse<ProductResponse>> searchProductsPaged(
+            @Parameter(description = "Search term to match against product name/description", required = true, example = "headphones")
+            @RequestParam String term,
+            @PageableDefault(size = 10, sort = "productName", direction = Sort.Direction.ASC) Pageable pageable) {
+        
+        Page<Product> productsPage = productService.searchProducts(term, pageable);
+        Page<ProductResponse> responsePage = productsPage.map(ProductMapper::toProductResponse);
+        PagedResponse<ProductResponse> pagedResponse = PagedResponse.of(responsePage);
+
+        return ResponseEntity.ok(pagedResponse);
     }
 
     /**
@@ -324,7 +383,6 @@ public class ProductController {
      */
     @Operation(summary = "Clear product cache", description = "Clears the product cache to force fresh data retrieval")
     @ApiResponse(responseCode = "204", description = "Cache cleared successfully")
-    @RequiredRole("ADMIN")
     @DeleteMapping("/cache")
     public ResponseEntity<Void> clearProductCache() {
         productService.invalidateProductCache();

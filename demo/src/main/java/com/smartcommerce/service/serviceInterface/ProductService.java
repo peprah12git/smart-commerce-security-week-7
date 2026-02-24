@@ -2,6 +2,9 @@ package com.smartcommerce.service.serviceInterface;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import com.smartcommerce.dtos.request.ProductFilterDTO;
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
@@ -31,30 +34,27 @@ public interface ProductService {
     List<Product> getAllProducts();
 
     /**
-     * Retrieves products with pagination, sorting, and filtering
+     * Retrieves products with sorting and filtering (paginated)
      *
-     * @param pageNumber   Page number (0-indexed)
-     * @param pageSize     Number of items per page
+     * @param pageable Pagination and sorting parameters
+     * @param filters  Filter criteria
+     * @return Paginated filtered products
+     */
+    Page<Product> getProductsWithFilters(Pageable pageable, ProductFilterDTO filters);
+
+    /**
+     * Retrieves products with sorting and filtering
+     *
      * @param sortBy       Field to sort by (productName, price, createdAt, etc.)
      * @param sortDirection Sort direction (ASC or DESC)
      * @param filters      Filter criteria
-     * @return Paginated and filtered list of products
+     * @return Filtered list of products
      */
-    List<Product> getProductsWithPaginationAndFilters(
-            int pageNumber,
-            int pageSize,
+    List<Product> getProductsWithFilters(
             String sortBy,
             String sortDirection,
             ProductFilterDTO filters
     );
-
-    /**
-     * Counts total products matching the filter criteria
-     *
-     * @param filters Filter criteria
-     * @return Total count of matching products
-     */
-    long countProductsWithFilters(ProductFilterDTO filters);
 
     /**
      * Retrieves a product by ID
@@ -66,6 +66,16 @@ public interface ProductService {
     Product getProductById(int productId);
 
     /**
+     * Retrieves products by category name (paginated)
+     *
+     * @param categoryName Category name
+     * @param pageable     Pagination and sorting parameters
+     * @return Paginated products in the category
+     * @throws BusinessException if category name is invalid
+     */
+    Page<Product> getProductsByCategory(String categoryName, Pageable pageable);
+
+    /**
      * Retrieves products by category name
      *
      * @param categoryName Category name
@@ -73,6 +83,16 @@ public interface ProductService {
      * @throws BusinessException if category name is invalid
      */
     List<Product> getProductsByCategory(String categoryName);
+
+    /**
+     * Searches for products by name or description (paginated)
+     *
+     * @param searchTerm Search term
+     * @param pageable   Pagination and sorting parameters
+     * @return Paginated matching products
+     * @throws BusinessException if search term is invalid
+     */
+    Page<Product> searchProducts(String searchTerm, Pageable pageable);
 
     /**
      * Searches for products by name or description

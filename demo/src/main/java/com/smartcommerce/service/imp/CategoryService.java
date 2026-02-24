@@ -3,16 +3,20 @@ package com.smartcommerce.service.imp;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.smartcommerce.dao.interfaces.CategoryDaoInterface;
-import com.smartcommerce.dao.interfaces.ProductDaoInterface;
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.DuplicateResourceException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.Category;
 import com.smartcommerce.model.Product;
+import com.smartcommerce.repositories.CategoryRepository;
+import com.smartcommerce.repositories.ProductRepository;
 import com.smartcommerce.service.serviceInterface.CategoryServiceInterface;
 
 /**
@@ -23,13 +27,13 @@ import com.smartcommerce.service.serviceInterface.CategoryServiceInterface;
 @Transactional
 public class CategoryService implements CategoryServiceInterface {
 
-    private final CategoryDaoInterface categoryDao;
-    private final ProductDaoInterface productDao;
+    private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
     @Autowired
-    public CategoryService(CategoryDaoInterface categoryDao, ProductDaoInterface productDao) {
-        this.categoryDao = categoryDao;
-        this.productDao = productDao;
+    public CategoryService(CategoryRepository categoryRepository, ProductRepository productRepository) {
+        this.categoryRepository = categoryRepository;
+        this.productRepository = productRepository;
     }
 
     /**
@@ -40,12 +44,17 @@ public class CategoryService implements CategoryServiceInterface {
      * @throws DuplicateResourceException if category name already exists
      * @throws BusinessException          if category creation fails
      */
+    @Override
+    @Caching(evict = {
+        @CacheEvict(value = "categories", allEntries = true),
+        @CacheEvict(value = "category", key = "#result.categoryId")
+    })
     public Category createCategory(Category category) {
         // Validate input
         validateCategory(category);
 
         // Check for duplicate category name
-        List<Category> existingCategories = categoryDao.getAllCategories();
+        List<Category> existingCategories = categoryRepository.findAll();
         boolean nameExists = existingCategories.stream()
                 .anyMatch(c -> c.getCategoryName().equalsIgnoreCase(category.getCategoryName()));
 
@@ -53,24 +62,8 @@ public class CategoryService implements CategoryServiceInterface {
             throw new DuplicateResourceException("Category", "name", category.getCategoryName());
         }
 
-        // Add category
-        boolean success = categoryDao.addCategory(category);
-        if (!success) {
-            throw new BusinessException("Failed to create category");
-        }
-
-        // Retrieve and return the created category
-        List<Category> categories = categoryDao.getAllCategories();
-        Category createdCategory = categories.stream()
-                .filter(c -> c.getCategoryName().equalsIgnoreCase(category.getCategoryName()))
-                .findFirst()
-                .orElse(null);
-
-        if (createdCategory == null) {
-            throw new BusinessException("Category created but could not be retrieved");
-        }
-
-        return createdCategory;
+        // Save and return category
+        return categoryRepository.save(category);
     }
 
     /**
@@ -78,9 +71,11 @@ public class CategoryService implements CategoryServiceInterface {
      *
      * @return List of all categories
      */
+    @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "categories", key = "'all'")
     public List<Category> getAllCategories() {
-        return categoryDao.getAllCategories();
+        return categoryRepository.findAll();
     }
 
     /**
@@ -90,13 +85,12 @@ public class CategoryService implements CategoryServiceInterface {
      * @return Category object
      * @throws ResourceNotFoundException if category not found
      */
+    @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "category", key = "#categoryId")
     public Category getCategoryById(int categoryId) {
-        Category category = categoryDao.getCategoryById(categoryId);
-        if (category == null) {
-            throw new ResourceNotFoundException("Category", "id", categoryId);
-        }
-        return category;
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
     }
 
     /**
@@ -106,23 +100,19 @@ public class CategoryService implements CategoryServiceInterface {
      * @return Category object
      * @throws ResourceNotFoundException if category not found
      */
+    @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "category", key = "'name:' + #categoryName")
     public Category getCategoryByName(String categoryName) {
         if (categoryName == null || categoryName.trim().isEmpty()) {
             throw new BusinessException("Category name cannot be empty");
         }
 
-        List<Category> categories = categoryDao.getAllCategories();
-        Category category = categories.stream()
+        List<Category> categories = categoryRepository.findAll();
+        return categories.stream()
                 .filter(c -> c.getCategoryName().equalsIgnoreCase(categoryName))
                 .findFirst()
-                .orElse(null);
-
-        if (category == null) {
-            throw new ResourceNotFoundException("Category", "name", categoryName);
-        }
-
-        return category;
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "name", categoryName));
     }
 
     /**
@@ -135,19 +125,22 @@ public class CategoryService implements CategoryServiceInterface {
      * @throws DuplicateResourceException if category name already exists
      * @throws BusinessException          if update fails
      */
+    @Override
+    @Caching(
+        put = @CachePut(value = "category", key = "#categoryId"),
+        evict = @CacheEvict(value = "categories", allEntries = true)
+    )
     public Category updateCategory(int categoryId, Category categoryDetails) {
         // Check if category exists
-        Category existingCategory = categoryDao.getCategoryById(categoryId);
-        if (existingCategory == null) {
-            throw new ResourceNotFoundException("Category", "id", categoryId);
-        }
+        Category existingCategory = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
 
         // Validate updated details
         validateCategory(categoryDetails);
 
         // Check for duplicate name (if name is being changed)
         if (!existingCategory.getCategoryName().equalsIgnoreCase(categoryDetails.getCategoryName())) {
-            List<Category> categories = categoryDao.getAllCategories();
+            List<Category> categories = categoryRepository.findAll();
             boolean nameExists = categories.stream()
                     .anyMatch(c -> c.getCategoryId() != categoryId
                             && c.getCategoryName().equalsIgnoreCase(categoryDetails.getCategoryName()));
@@ -161,14 +154,7 @@ public class CategoryService implements CategoryServiceInterface {
         existingCategory.setCategoryName(categoryDetails.getCategoryName());
         existingCategory.setDescription(categoryDetails.getDescription());
 
-
-        // Perform update
-        boolean success = categoryDao.updateCategory(existingCategory);
-        if (!success) {
-            throw new BusinessException("Failed to update category");
-        }
-
-        return getCategoryById(categoryId);
+        return categoryRepository.save(existingCategory);
     }
 
     /**
@@ -178,26 +164,25 @@ public class CategoryService implements CategoryServiceInterface {
      * @throws ResourceNotFoundException if category not found
      * @throws BusinessException         if category has products or deletion fails
      */
+    @Override
+    @Caching(evict = {
+        @CacheEvict(value = "categories", allEntries = true),
+        @CacheEvict(value = "category", key = "#categoryId")
+    })
     public void deleteCategory(int categoryId) {
         // Check if category exists
-        Category category = categoryDao.getCategoryById(categoryId);
-        if (category == null) {
-            throw new ResourceNotFoundException("Category", "id", categoryId);
-        }
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
 
         // Check if category has products
-        List<Product> productsInCategory = productDao.getProductsByCategory(category.getCategoryName());
+        List<Product> productsInCategory = productRepository.findByCategoryName(category.getCategoryName());
         if (productsInCategory != null && !productsInCategory.isEmpty()) {
             throw new BusinessException(
                     String.format("Cannot delete category '%s' because it has %d product(s) associated with it",
                             category.getCategoryName(), productsInCategory.size()));
         }
 
-        // Perform deletion
-        boolean success = categoryDao.deleteCategory(categoryId);
-        if (!success) {
-            throw new BusinessException("Failed to delete category");
-        }
+        categoryRepository.deleteById(categoryId);
     }
 
     /**

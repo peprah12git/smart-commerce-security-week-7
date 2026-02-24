@@ -2,6 +2,9 @@ package com.smartcommerce.service.serviceInterface;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.Inventory;
@@ -33,11 +36,28 @@ public interface InventoryServiceInterface {
     Inventory getInventoryByProductId(int productId);
 
     /**
+     * Retrieves all inventory records (paginated)
+     *
+     * @param pageable Pagination and sorting parameters
+     * @return paginated inventory items
+     */
+    Page<Inventory> getAllInventory(Pageable pageable);
+
+    /**
      * Retrieves all inventory records
      *
      * @return list of all inventory items
      */
     List<Inventory> getAllInventory();
+
+    /**
+     * Retrieves inventory items below a stock threshold (paginated)
+     *
+     * @param threshold the minimum quantity threshold
+     * @param pageable  Pagination and sorting parameters
+     * @return paginated low stock inventory items
+     */
+    Page<Inventory> getLowStockItems(int threshold, Pageable pageable);
 
     /**
      * Retrieves inventory items below a stock threshold

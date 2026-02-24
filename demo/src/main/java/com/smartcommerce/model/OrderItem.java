@@ -1,17 +1,40 @@
 package com.smartcommerce.model;
 
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 
+@Entity
+@Table(name = "OrderItems")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class OrderItem {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "order_item_id")
     private int orderItemId;
-    private int orderId;
-    private int productId;
-    private String productName; // For joined queries
-    private int quantity;
-    private BigDecimal unitPrice;
-    private BigDecimal subtotal;
 
-    public OrderItem() {}
+    @Column(name = "order_id", nullable = false)
+    private int orderId;
+
+    @Column(name = "product_id", nullable = false)
+    private int productId;
+
+    @Transient
+    private String productName;
+
+    @Column(nullable = false)
+    private int quantity;
+
+    @Column(name = "unit_price", nullable = false)
+    private BigDecimal unitPrice;
+
+    @Column(nullable = false)
+    private BigDecimal subtotal;
 
     public OrderItem(int orderId, int productId, int quantity, BigDecimal unitPrice) {
         this.orderId = orderId;
@@ -21,20 +44,6 @@ public class OrderItem {
         this.subtotal = unitPrice.multiply(new BigDecimal(quantity));
     }
 
-    // Getters and Setters
-    public int getOrderItemId() { return orderItemId; }
-    public void setOrderItemId(int orderItemId) { this.orderItemId = orderItemId; }
-
-    public int getOrderId() { return orderId; }
-    public void setOrderId(int orderId) { this.orderId = orderId; }
-
-    public int getProductId() { return productId; }
-    public void setProductId(int productId) { this.productId = productId; }
-
-    public String getProductName() { return productName; }
-    public void setProductName(String productName) { this.productName = productName; }
-
-    public int getQuantity() { return quantity; }
     public void setQuantity(int quantity) {
         this.quantity = quantity;
         if (this.unitPrice != null) {
@@ -42,14 +51,10 @@ public class OrderItem {
         }
     }
 
-    public BigDecimal getUnitPrice() { return unitPrice; }
     public void setUnitPrice(BigDecimal unitPrice) {
         this.unitPrice = unitPrice;
         this.subtotal = unitPrice.multiply(new BigDecimal(this.quantity));
     }
-
-    public BigDecimal getSubtotal() { return subtotal; }
-    public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
 
     @Override
     public String toString() {

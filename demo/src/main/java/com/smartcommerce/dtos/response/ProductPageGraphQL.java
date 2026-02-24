@@ -4,14 +4,14 @@ import java.util.List;
 
 import org.springframework.data.domain.Page;
 
+import com.smartcommerce.model.Product;
+
 /**
- * Generic DTO for paginated API responses
- * Wraps a list of items with pagination metadata
- *
- * @param <T> Type of items in the response
+ * GraphQL DTO for paginated Product responses
+ * Maps Spring Data Page to GraphQL ProductPage type
  */
-public record PagedResponse<T>(
-        List<T> content,
+public record ProductPageGraphQL(
+        List<Product> content,
         int page,
         int size,
         long totalElements,
@@ -21,14 +21,13 @@ public record PagedResponse<T>(
         boolean empty
 ) {
     /**
-     * Creates a PagedResponse from a Spring Data Page object
+     * Creates a ProductPageGraphQL from a Spring Data Page object
      *
-     * @param page Spring Data Page
-     * @param <T>  Content type
-     * @return PagedResponse
+     * @param page Spring Data Page of Products
+     * @return ProductPageGraphQL
      */
-    public static <T> PagedResponse<T> of(Page<T> page) {
-        return new PagedResponse<>(
+    public static ProductPageGraphQL of(Page<Product> page) {
+        return new ProductPageGraphQL(
                 page.getContent(),
                 page.getNumber(),
                 page.getSize(),

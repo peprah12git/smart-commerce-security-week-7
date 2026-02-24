@@ -1,23 +1,25 @@
 package com.smartcommerce.service.imp;
 
-import com.smartcommerce.dao.interfaces.ReviewDaoInterface;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.smartcommerce.dtos.request.UpdateReviewDTO;
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.Review;
+import com.smartcommerce.repositories.ReviewRepository;
 import com.smartcommerce.service.serviceInterface.ReviewService;
-import lombok.AllArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import lombok.AllArgsConstructor;
 
 @Service
 @Transactional
 @AllArgsConstructor
 public class ReviewServiceImp implements ReviewService {
 
-    private ReviewDaoInterface reviewDao;
+    private ReviewRepository reviewRepository;
 
     @Override
     public Review createReview(Review review) {
@@ -28,70 +30,52 @@ public class ReviewServiceImp implements ReviewService {
             throw new BusinessException("Review comment is required");
         }
 
-        boolean success = reviewDao.addReview(review);
-        if (!success) {
-            throw new BusinessException("Failed to create review");
-        }
-        return review;
+        return reviewRepository.save(review);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Review getReviewById(int reviewId) {
-        Review review = reviewDao.getReviewById(reviewId);
-        if (review == null) {
-            throw new ResourceNotFoundException("Review", "id", reviewId);
-        }
-        return review;
+        return reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review", "id", reviewId));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Review> getReviewsByProductId(int productId) {
-        return reviewDao.getReviewsByProductId(productId);
+        return reviewRepository.findByProductIdOrderByReviewDateDesc(productId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Review> getReviewsByUserId(int userId) {
-        return reviewDao.getReviewsByUserId(userId);
+        return reviewRepository.findByUserIdOrderByReviewDateDesc(userId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Review> getAllReviews() {
-        return reviewDao.getAllReviews();
+        return reviewRepository.findAll();
     }
 
     @Override
     public Review updateReview(int reviewId, UpdateReviewDTO dto) {
-        Review existing = reviewDao.getReviewById(reviewId);
-        if (existing == null) {
-            throw new ResourceNotFoundException("Review", "id", reviewId);
-        }
+        Review existing = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review", "id", reviewId));
 
         existing.setRating(dto.rating());
         existing.setComment(dto.comment());
 
-        boolean success = reviewDao.updateReview(existing);
-        if (!success) {
-            throw new BusinessException("Failed to update review");
-        }
-
-        return reviewDao.getReviewById(reviewId);
+        return reviewRepository.save(existing);
     }
 
 
     @Override
     public void deleteReview(int reviewId) {
-        Review review = reviewDao.getReviewById(reviewId);
-        if (review == null) {
+        if (!reviewRepository.existsById(reviewId)) {
             throw new ResourceNotFoundException("Review", "id", reviewId);
         }
 
-        boolean success = reviewDao.deleteReview(reviewId);
-        if (!success) {
-            throw new BusinessException("Failed to delete review");
-        }
+        reviewRepository.deleteById(reviewId);
     }
 }

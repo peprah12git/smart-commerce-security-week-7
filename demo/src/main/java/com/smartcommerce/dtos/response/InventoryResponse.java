@@ -11,10 +11,7 @@ public record InventoryResponse(
         @Schema(description = "Product ID", example = "1")
         Integer productId,
 
-        @Schema(description = "Product name", example = "Laptop")
-        String productName,
-
-        @Schema(description = "Available quantity", example = "50")
+        String productName, @Schema(description = "Available quantity", example = "50")
         Integer quantityAvailable,
 
         @Schema(description = "Last updated timestamp")

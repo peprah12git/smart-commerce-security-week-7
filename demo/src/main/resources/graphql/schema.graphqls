@@ -8,6 +8,19 @@ type Product {
     categoryName: String
     createdAt: String
 }
+
+# Paginated response type for products
+type ProductPage {
+    content: [Product!]!
+    page: Int!
+    size: Int!
+    totalElements: Int!
+    totalPages: Int!
+    first: Boolean!
+    last: Boolean!
+    empty: Boolean!
+}
+
 #queries to fetch/retrieve data:
 type Category {
     categoryId: Int!
@@ -28,13 +41,23 @@ type Query {
 
     # Get all products with optional filters
     products(
-        pageNumber: Int
-        pageSize: Int
         category: String
         minPrice: Float
         maxPrice: Float
         searchTerm: String
     ): [Product!]!
+
+    # Get paginated products with optional filters (page size: 10)
+    productsPaged(
+        page: Int = 0
+        size: Int = 10
+        sortBy: String = "productId"
+        sortDirection: String = "ASC"
+        category: String
+        minPrice: Float
+        maxPrice: Float
+        searchTerm: String
+    ): ProductPage!
 
     # Get single category
     category(id: Int!): Category
@@ -44,6 +67,15 @@ type Query {
 
     # Search products
     searchProducts(searchTerm: String!): [Product!]!
+
+    # Search products with pagination
+    searchProductsPaged(
+        searchTerm: String!
+        page: Int = 0
+        size: Int = 10
+        sortBy: String = "productName"
+        sortDirection: String = "ASC"
+    ): ProductPage!
 }
 
 type Mutation {
