@@ -247,6 +247,7 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product or category not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
+    @RequiredRole("ADMIN")
     @PutMapping("/{id}")
     public ResponseEntity<ProductResponse> updateProduct(
             @Parameter(description = "Product ID to update", required = true, example = "1")
@@ -282,6 +283,7 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
+    @RequiredRole("ADMIN")
     @PatchMapping("/{id}/quantity")
     public ResponseEntity<ProductResponse> updateProductQuantity(
             @Parameter(description = "Product ID", required = true, example = "1")
@@ -307,6 +309,7 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
+    @RequiredRole("ADMIN")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProduct(
             @Parameter(description = "Product ID to delete", required = true, example = "1")
@@ -321,6 +324,7 @@ public class ProductController {
      */
     @Operation(summary = "Clear product cache", description = "Clears the product cache to force fresh data retrieval")
     @ApiResponse(responseCode = "204", description = "Cache cleared successfully")
+    @RequiredRole("ADMIN")
     @DeleteMapping("/cache")
     public ResponseEntity<Void> clearProductCache() {
         productService.invalidateProductCache();
