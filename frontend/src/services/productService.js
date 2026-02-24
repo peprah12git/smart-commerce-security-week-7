@@ -7,11 +7,9 @@ const ProductService = {
     return await graphqlService.getAllProducts();
   },
 
-  // Get products with pagination and filtering - USE GRAPHQL for simple queries
+  // Get products with filtering - USE GRAPHQL
   getProducts: async (params = {}) => {
     const {
-      page = 0,
-      size = 10,
       sortBy = 'productId',
       sortDirection = 'ASC',
       category,
@@ -21,15 +19,13 @@ const ProductService = {
       inStock,
     } = params;
 
-    // Use GraphQL for simple filtering (no pagination/sorting)
-    if (!page && !size && !sortBy && !inStock) {
+    // Use GraphQL for simple filtering (no sorting/inStock filter)
+    if (sortBy === 'productId' && sortDirection === 'ASC' && !inStock) {
       return await graphqlService.getProducts({ category, minPrice, maxPrice, searchTerm });
     }
 
-    // Use REST for complex queries with pagination
+    // Use REST for complex queries with sorting and inStock filter
     const queryParams = new URLSearchParams({
-      page: page.toString(),
-      size: size.toString(),
       sortBy,
       sortDirection,
     });

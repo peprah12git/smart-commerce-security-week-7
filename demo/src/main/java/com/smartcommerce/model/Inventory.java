@@ -1,62 +1,41 @@
 package com.smartcommerce.model;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import java.sql.Timestamp;
 
+@Entity
+@Table(name = "Inventory")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Inventory {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "inventory_id")
     private int inventoryId;
-    private int productId;
-    private String productName;
-    private int quantityAvailable;
-    private Timestamp lastUpdated;
 
-    // Constructors
-    public Inventory() {
-    }
+    @Column(name = "product_id", nullable = false)
+    private int productId;
+
+    @Transient
+    private String productName;
+
+    @Column(name = "quantity_available", nullable = false)
+    private int quantityAvailable;
+
+    @UpdateTimestamp
+    @Column(name = "last_updated")
+    private Timestamp lastUpdated;
 
     public Inventory(int inventoryId, int productId, int quantityAvailable) {
         this.inventoryId = inventoryId;
         this.productId = productId;
         this.quantityAvailable = quantityAvailable;
-    }
-
-    // Getters and Setters
-    public int getInventoryId() {
-        return inventoryId;
-    }
-
-    public void setInventoryId(int inventoryId) {
-        this.inventoryId = inventoryId;
-    }
-
-    public int getProductId() {
-        return productId;
-    }
-
-    public void setProductId(int productId) {
-        this.productId = productId;
-    }
-
-    public String getProductName() {
-        return productName;
-    }
-
-    public void setProductName(String productName) {
-        this.productName = productName;
-    }
-
-    public int getQuantityAvailable() {
-        return quantityAvailable;
-    }
-
-    public void setQuantityAvailable(int quantityAvailable) {
-        this.quantityAvailable = quantityAvailable;
-    }
-
-    public Timestamp getLastUpdated() {
-        return lastUpdated;
-    }
-
-    public void setLastUpdated(Timestamp lastUpdated) {
-        this.lastUpdated = lastUpdated;
     }
 
     public boolean isLowStock(int threshold) {

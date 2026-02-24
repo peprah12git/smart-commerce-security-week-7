@@ -1,15 +1,16 @@
 package com.smartcommerce.controller.graphiqlController;
 
-import com.smartcommerce.dtos.request.ProductFilterDTO;
-import com.smartcommerce.model.Product;
-import com.smartcommerce.service.serviceInterface.ProductService;
+import java.math.BigDecimal;
+import java.util.List;
+
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
-import java.math.BigDecimal;
-import java.util.List;
+import com.smartcommerce.dtos.request.ProductFilterDTO;
+import com.smartcommerce.model.Product;
+import com.smartcommerce.service.serviceInterface.ProductService;
 
 /**
  * GraphQL Controller for Product operations
@@ -37,25 +38,18 @@ public class ProductGraphQLController {
     }
 
     /**
-     * Get all products with optional pagination and filters
+     * Get all products with optional filters
      * GraphQL Query: products(...): [Product!]!
      */
     @QueryMapping
     public List<Product> products(
-            @Argument Integer pageNumber,
-            @Argument Integer pageSize,
             @Argument String category,
             @Argument Double minPrice,
             @Argument Double maxPrice,
             @Argument String searchTerm) {
 
-        // If pagination parameters provided, use filtered query
-        if (pageNumber != null || pageSize != null || category != null ||
-                minPrice != null || maxPrice != null || searchTerm != null) {
-
-            int page = pageNumber != null ? pageNumber : 0;
-            int size = pageSize != null ? pageSize : 10;
-
+        // If any filters provided, use filtered query
+        if (category != null || minPrice != null || maxPrice != null || searchTerm != null) {
             ProductFilterDTO filters = new ProductFilterDTO(
                     category,
                     minPrice != null ? BigDecimal.valueOf(minPrice) : null,
@@ -64,9 +58,7 @@ public class ProductGraphQLController {
                     null  // inStock filter
             );
 
-            return productService.getProductsWithPaginationAndFilters(
-                    page, size, "productId", "ASC", filters
-            );
+            return productService.getProductsWithFilters("productId", "ASC", filters);
         }
 
         // Return all products if no filters

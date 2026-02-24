@@ -20,7 +20,7 @@ A full-stack e-commerce application built with Spring Boot and React, featuring 
 ### Frontend (React)
 - **Modern UI** with responsive design
 - **User Authentication** with protected routes
-- **Product Browsing** with pagination and filtering
+- **Product Browsing** with filtering and sorting
 - **Shopping Cart** management
 - **Order Placement** and tracking
 - **Admin Dashboard** for product and inventory management
@@ -129,7 +129,7 @@ http://localhost:8080/graphiql
 - `DELETE /api/users/{id}` - Delete user
 
 #### Products
-- `GET /api/products` - Get all products (with pagination & filtering)
+- `GET /api/products` - Get all products (with filtering & sorting)
 - `GET /api/products/{id}` - Get product by ID
 - `POST /api/products` - Create product (Admin)
 - `PUT /api/products/{id}` - Update product (Admin)

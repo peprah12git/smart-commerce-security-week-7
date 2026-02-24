@@ -1,10 +1,25 @@
 package com.smartcommerce.controller.restControllers;
 
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.smartcommerce.dtos.request.CreateProductDTO;
 import com.smartcommerce.dtos.request.ProductFilterDTO;
 import com.smartcommerce.dtos.request.UpdateProductDTO;
 import com.smartcommerce.dtos.request.UpdateProductQuantityDTO;
-import com.smartcommerce.dtos.response.PagedResponse;
 import com.smartcommerce.dtos.response.ProductResponse;
 import com.smartcommerce.exception.ErrorResponse;
 import com.smartcommerce.exception.ValidationErrorResponse;
@@ -13,6 +28,7 @@ import com.smartcommerce.security.RequiredRole;
 import com.smartcommerce.service.serviceInterface.ProductService;
 import com.smartcommerce.utils.ProductMapper;
 import com.smartcommerce.validation.ValidSortDirection;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -21,21 +37,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 /**
  * REST Controller for Product management
- * Handles HTTP requests for product CRUD operations with pagination, sorting, and filtering
+ * Handles HTTP requests for product CRUD operations with sorting and filtering
  * Base URL: /api/products
  */
 @RestController
 @RequestMapping("/api/products")
-@Tag(name = "Products", description = "Product management API — CRUD, search, pagination, and filtering")
+@Tag(name = "Products", description = "Product management API — CRUD, search, sorting, and filtering")
 public class ProductController {
 
     private final ProductService productService;
@@ -100,11 +110,9 @@ public class ProductController {
     }
 
     /**
-     * Get products with pagination, sorting, and filtering
-     * GET /api/products?page=0&size=10&sortBy=price&sortDirection=ASC&category=Electronics&minPrice=100&maxPrice=1000&searchTerm=phone&inStock=true
+     * Get products with sorting and filtering
+     * GET /api/products?sortBy=price&sortDirection=ASC&category=Electronics&minPrice=100&maxPrice=1000&searchTerm=phone&inStock=true
      *
-     * @param page          Page number (default: 0)
-     * @param size          Page size (default: 10, max: 100)
      * @param sortBy        Sort field (default: productId)
      *                      Options: productName, price, categoryName, quantity, createdAt, productId
      * @param sortDirection Sort direction (default: ASC)
@@ -115,19 +123,15 @@ public class ProductController {
      * @param searchTerm    Search in product name and description
      * @param inStock       Filter by stock status (true=in stock, false=out of stock)
      */
-    @Operation(summary = "Get products with pagination and filtering",
-            description = "Retrieves products with support for pagination, sorting, and multiple filter criteria")
+    @Operation(summary = "Get products with filtering",
+            description = "Retrieves products with support for sorting and multiple filter criteria")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Paginated product list retrieved successfully"),
+            @ApiResponse(responseCode = "200", description = "Product list retrieved successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid request parameters",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping
-    public ResponseEntity<PagedResponse<ProductResponse>> getProducts(
-            @Parameter(description = "Page number (0-indexed)", example = "0")
-            @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Page size (max 100)", example = "10")
-            @RequestParam(defaultValue = "10") int size,
+    public ResponseEntity<List<ProductResponse>> getProducts(
             @Parameter(description = "Sort field", example = "productId",
                     schema = @Schema(allowableValues = {"productName", "price", "categoryName", "quantity", "createdAt", "productId"}))
             @RequestParam(defaultValue = "productId") String sortBy,
@@ -139,7 +143,6 @@ public class ProductController {
             @Parameter(description = "Search in product name and description") @RequestParam(required = false) String searchTerm,
             @Parameter(description = "Filter by stock status") @RequestParam(required = false) Boolean inStock) {
 
-        // Create filter DTO
         ProductFilterDTO filters = new ProductFilterDTO(
                 category,
                 minPrice,
@@ -148,28 +151,10 @@ public class ProductController {
                 inStock
         );
 
-        // Get paginated and filtered products
-        List<Product> products = productService.getProductsWithPaginationAndFilters(
-                page, size, sortBy, sortDirection, filters
-        );
-
-        // Get total count for pagination
-        long totalElements = productService.countProductsWithFilters(filters);
-
-        // Convert to response DTOs
+        List<Product> products = productService.getProductsWithFilters(sortBy, sortDirection, filters);
         List<ProductResponse> productResponses = ProductMapper.toProductResponseList(products);
 
-        // Create paged response
-        PagedResponse<ProductResponse> response = new PagedResponse<>(
-                productResponses,
-                page,
-                size,
-                totalElements,
-                sortBy,
-                sortDirection
-        );
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(productResponses);
     }
 
     /**

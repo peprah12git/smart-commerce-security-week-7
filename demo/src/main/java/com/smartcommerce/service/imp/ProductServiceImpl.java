@@ -1,5 +1,13 @@
 package com.smartcommerce.service.imp;
 
+import java.math.BigDecimal;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.smartcommerce.dao.interfaces.CategoryDaoInterface;
 import com.smartcommerce.dao.interfaces.ProductDaoInterface;
 import com.smartcommerce.dtos.request.ProductFilterDTO;
@@ -9,17 +17,10 @@ import com.smartcommerce.model.Category;
 import com.smartcommerce.model.Product;
 import com.smartcommerce.service.serviceInterface.ProductService;
 import com.smartcommerce.sorting.SortStrategy;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Service implementation for Product entity
- * Handles business logic, validation, pagination, sorting, and filtering
+ * Handles business logic, validation, sorting, and filtering
  */
 @Service
 @Transactional
@@ -77,49 +78,18 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Product> getProductsWithPaginationAndFilters(
-            int pageNumber, // which page of result to fetch
-            int pageSize, // number of items per page
+    public List<Product> getProductsWithFilters(
             String sortBy,
             String sortDirection,
             ProductFilterDTO filters) {
 
-        // Validate pagination parameters
-        if (pageNumber < 0) {
-            throw new BusinessException("Page number cannot be negative");
-        }
-        if (pageSize <= 0) {
-            throw new BusinessException("Page size must be greater than 0");
-        }
-        if (pageSize > 100) {
-            throw new BusinessException("Page size cannot exceed 100");
-        }
-
-        // Get all products
-        List<Product> products = productDao.getAllProducts();
-
-        // Apply filters
-        if (filters != null && filters.hasFilters()) {
-            products = applyFilters(products, filters);
-        }
-
-        // Apply sorting
-        products = applySorting(products, sortBy, sortDirection);
-
-        // Apply pagination
-        return applyPagination(products, pageNumber, pageSize);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public long countProductsWithFilters(ProductFilterDTO filters) {
         List<Product> products = productDao.getAllProducts();
 
         if (filters != null && filters.hasFilters()) {
             products = applyFilters(products, filters);
         }
 
-        return products.size();
+        return applySorting(products, sortBy, sortDirection);
     }
 
     /**
@@ -243,24 +213,7 @@ public class ProductServiceImpl implements ProductService {
         };
     }
 
-    /**
-     * Apply pagination to product list
-     */
-    private List<Product> applyPagination(List<Product> products, int pageNumber, int pageSize) {
-        // determine the starting index  page
-        int startIndex = pageNumber * pageSize;
-        // Step 2: Check if the starting index is beyond the list size
-        // If it is, the requested page is out of bounds, so return an empty list
-        if (startIndex >= products.size()) {
-            return List.of(); // Return empty list if page is out of bounds
-        }
-        //calculate the ending index of the page
-        int endIndex = Math.min(startIndex + pageSize, products.size());
-        // return the sublist requesting the requested page
-        return products.subList(startIndex, endIndex);
-    }
-
-    @Override
+@Override
     @Transactional(readOnly = true)
     public Product getProductById(int productId) {
         Product product = productDao.getProductById(productId);

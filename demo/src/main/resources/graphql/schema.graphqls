@@ -28,8 +28,6 @@ type Query {
 
     # Get all products with optional filters
     products(
-        pageNumber: Int
-        pageSize: Int
         category: String
         minPrice: Float
         maxPrice: Float
