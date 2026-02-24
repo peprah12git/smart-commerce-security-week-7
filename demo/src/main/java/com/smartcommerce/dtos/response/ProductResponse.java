@@ -32,9 +32,6 @@ public class ProductResponse {
     @Schema(description = "Category name", example = "Electronics")
     private String categoryName;
 
-    @Schema(description = "Quantity available in stock", example = "100")
-    private int quantityAvailable;
-
     @Schema(description = "Product creation timestamp")
     private Timestamp createdAt;
 
@@ -45,6 +42,5 @@ public class ProductResponse {
     public void setPrice(BigDecimal price) { this.price = price; }
     public void setCategoryId(int categoryId) { this.categoryId = categoryId; }
     public void setCategoryName(String categoryName) { this.categoryName = categoryName; }
-    public void setQuantityAvailable(int quantityAvailable) { this.quantityAvailable = quantityAvailable; }
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
 }

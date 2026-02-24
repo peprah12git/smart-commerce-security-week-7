@@ -158,21 +158,14 @@ public class ProductGraphQLController {
             @Argument String productName,
             @Argument String description,
             @Argument Double price,
-            @Argument int categoryId,
-            @Argument Integer quantityAvailable) {
+            @Argument int categoryId) {
 
-        Product product = new Product(
-                productName,
-                description,
-                BigDecimal.valueOf(price),
-                categoryId
-        );
+        Product product = new Product();
+        product.setName(productName);
+        product.setDescription(description);
+        product.setPrice(BigDecimal.valueOf(price));
 
-        if (quantityAvailable != null) {
-            product.setQuantityAvailable(quantityAvailable);
-        }
-
-        return productService.createProduct(product);
+        return productService.createProduct(product, categoryId);
     }
 
     /**
@@ -190,7 +183,7 @@ public class ProductGraphQLController {
         Product existingProduct = productService.getProductById(id);
 
         if (productName != null) {
-            existingProduct.setProductName(productName);
+            existingProduct.setName(productName);
         }
         if (description != null) {
             existingProduct.setDescription(description);
@@ -199,10 +192,10 @@ public class ProductGraphQLController {
             existingProduct.setPrice(BigDecimal.valueOf(price));
         }
         if (categoryId != null) {
-            existingProduct.setCategoryId(categoryId);
+            return productService.updateProduct(id, existingProduct, categoryId);
         }
-
-        return productService.updateProduct(id, existingProduct);
+        
+        return productService.updateProduct(id, existingProduct, null);
     }
 
 

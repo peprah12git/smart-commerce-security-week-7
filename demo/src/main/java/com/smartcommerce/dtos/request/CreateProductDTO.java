@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -30,10 +29,6 @@ public record CreateProductDTO(
         @NotNull(message = "Category ID is required")
         @Positive(message = "Category ID must be a positive number")
         @Schema(description = "ID of the category this product belongs to", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
-        Integer categoryId,
-
-        @Min(value = 0, message = "Quantity available cannot be negative")
-        @Schema(description = "Initial stock quantity", example = "100")
-        Integer quantityAvailable
+        Integer categoryId
 ) {
 }

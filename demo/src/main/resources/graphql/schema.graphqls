@@ -3,7 +3,6 @@ type Product {
     productName: String!
     description: String
     price: Float!
-    quantityAvailable: Int!
     categoryId: Int!
     categoryName: String
     createdAt: String
@@ -85,7 +84,6 @@ type Mutation {
         description: String
         price: Float!
         categoryId: Int!
-        quantityAvailable: Int
     ): Product!
 
     updateProduct(
@@ -95,8 +93,6 @@ type Mutation {
         price: Float
         categoryId: Int
     ): Product!
-
-    updateProductQuantity(id: Int!, quantity: Int!): Product!
 
     deleteProduct(id: Int!): Boolean!
 

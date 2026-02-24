@@ -20,11 +20,12 @@ public interface ProductService {
      * Creates a new product
      *
      * @param product Product object to create
+     * @param categoryId ID of the category for the product
      * @return Created product
      * @throws ResourceNotFoundException if category not found
      * @throws BusinessException         if product creation fails
      */
-    Product createProduct(Product product);
+    Product createProduct(Product product, Integer categoryId);
 
     /**
      * Retrieves all products
@@ -112,18 +113,7 @@ public interface ProductService {
      * @throws ResourceNotFoundException if product or category not found
      * @throws BusinessException         if update fails
      */
-    Product updateProduct(int productId, Product productDetails);
-
-    /**
-     * Updates product quantity
-     *
-     * @param productId Product ID
-     * @param quantity  New quantity
-     * @return Updated product
-     * @throws ResourceNotFoundException if product not found
-     * @throws BusinessException         if quantity is invalid or update fails
-     */
-    Product updateProductQuantity(int productId, int quantity);
+    Product updateProduct(int productId, Product productDetails, Integer categoryId);
 
     /**
      * Deletes a product

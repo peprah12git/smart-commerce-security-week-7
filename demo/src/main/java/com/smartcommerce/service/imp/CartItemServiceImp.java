@@ -11,11 +11,11 @@ import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.CartItem;
 import com.smartcommerce.model.Product;
-import com.smartcommerce.model.User;
 import com.smartcommerce.repositories.CartItemRepository;
 import com.smartcommerce.repositories.ProductRepository;
 import com.smartcommerce.repositories.UserRepository;
 import com.smartcommerce.service.serviceInterface.CartItemService;
+import com.smartcommerce.service.serviceInterface.InventoryServiceInterface;
 
 /**
  * Service layer for CartItem entity
@@ -28,14 +28,17 @@ public class CartItemServiceImp implements CartItemService {
     private final CartItemRepository cartItemRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final InventoryServiceInterface inventoryService;
 
     @Autowired
     public CartItemServiceImp(CartItemRepository cartItemRepository,
                                UserRepository userRepository,
-                               ProductRepository productRepository) {
+                               ProductRepository productRepository,
+                               InventoryServiceInterface inventoryService) {
         this.cartItemRepository = cartItemRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
+        this.inventoryService = inventoryService;
     }
 
     /**
@@ -44,7 +47,7 @@ public class CartItemServiceImp implements CartItemService {
     @Override
     public CartItem addToCart(int userId, int productId, int quantity) {
         // Validate user exists
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         // Validate product exists
@@ -56,13 +59,12 @@ public class CartItemServiceImp implements CartItemService {
             throw new BusinessException("Quantity must be greater than zero");
         }
 
-        // Check stock availability
+        // Check stock availability using Inventory service
         CartItem existingItem = cartItemRepository.findByUserIdAndProductId(userId, productId).orElse(null);
         int totalQuantity = quantity + (existingItem != null ? existingItem.getQuantity() : 0);
         
-        if (product.getQuantityAvailable() < totalQuantity) {
-            throw new BusinessException("Insufficient stock for product: " + product.getProductName() +
-                    ". Available: " + product.getQuantityAvailable() + ", Requested: " + totalQuantity);
+        if (!inventoryService.hasEnoughStock(productId, totalQuantity)) {
+            throw new BusinessException("Insufficient stock for product: " + product.getName());
         }
 
         // Create or update cart item
@@ -130,13 +132,12 @@ public class CartItemServiceImp implements CartItemService {
             throw new BusinessException("Quantity must be greater than zero. Use removeFromCart to delete items.");
         }
 
-        // Check stock availability
+        // Check stock availability using Inventory service
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
-        if (product.getQuantityAvailable() < quantity) {
-            throw new BusinessException("Insufficient stock for product: " + product.getProductName() +
-                    ". Available: " + product.getQuantityAvailable() + ", Requested: " + quantity);
+        if (!inventoryService.hasEnoughStock(productId, quantity)) {
+            throw new BusinessException("Insufficient stock for product: " + product.getName());
         }
 
         // Update quantity

@@ -29,7 +29,7 @@ public class Category {
     @Column(name = "created_at", updatable = false)
     private Timestamp createdAt;
 
-    @OneToMany(mappedBy = "categoryId", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
     private List<Product> products;
 
     public Category(String categoryName, String description) {

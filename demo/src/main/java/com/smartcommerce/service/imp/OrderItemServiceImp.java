@@ -9,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
-import com.smartcommerce.model.Order;
 import com.smartcommerce.model.OrderItem;
 import com.smartcommerce.model.Product;
 import com.smartcommerce.repositories.OrderItemRepository;
@@ -41,7 +40,7 @@ public class OrderItemServiceImp implements OrderItemService {
     @Override
     public OrderItem addOrderItem(OrderItem orderItem) {
         // Validate order exists
-        Order order = orderRepository.findById(orderItem.getOrderId())
+        orderRepository.findById(orderItem.getOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderItem.getOrderId()));
 
         // Validate product exists
@@ -54,7 +53,7 @@ public class OrderItemServiceImp implements OrderItemService {
         }
 
         // Set product name for convenience
-        orderItem.setProductName(product.getProductName());
+        orderItem.setProductName(product.getName());
 
         return orderItemRepository.save(orderItem);
     }

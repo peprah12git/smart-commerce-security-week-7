@@ -1,7 +1,6 @@
 package com.smartcommerce.service.imp;
 
 import java.math.BigDecimal;
-import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -12,6 +11,7 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +23,6 @@ import com.smartcommerce.model.Product;
 import com.smartcommerce.repositories.CategoryRepository;
 import com.smartcommerce.repositories.ProductRepository;
 import com.smartcommerce.service.serviceInterface.ProductService;
-import com.smartcommerce.sorting.SortStrategy;
 
 /**
  * Service implementation for Product entity
@@ -35,15 +34,12 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
-    private final SortStrategy<Product> sortStrategy;
 
     // Manual constructor for dependency injection
     public ProductServiceImpl(ProductRepository productRepository,
-                              CategoryRepository categoryRepository,
-                              SortStrategy<Product> sortStrategy) {
+                              CategoryRepository categoryRepository) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
-        this.sortStrategy = sortStrategy;
     }
 
     @Override
@@ -51,12 +47,13 @@ public class ProductServiceImpl implements ProductService {
         @CacheEvict(value = "products", allEntries = true),
         @CacheEvict(value = "product", key = "#result.productId")
     })
-    public Product createProduct(Product product) {
+    public Product createProduct(Product product, Integer categoryId) {
         // Business validation
-        validateProduct(product);
-        // check if category exist
-        Category category = categoryRepository.findById(product.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", product.getCategoryId()));
+        validateProduct(product, categoryId);
+        // Set category relationship
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
+        product.setCategory(category);
 
         Product savedProduct = productRepository.save(product);
         return savedProduct;
@@ -76,13 +73,16 @@ public class ProductServiceImpl implements ProductService {
             String sortDirection,
             ProductFilterDTO filters) {
 
-        List<Product> products = productRepository.findAll();
+        // Build Sort object from string parameters
+        Sort sort = buildSort(sortBy, sortDirection);
+        
+        List<Product> products = productRepository.findAll(sort);
 
         if (filters != null && filters.hasFilters()) {
             products = applyFilters(products, filters);
         }
 
-        return applySorting(products, sortBy, sortDirection);
+        return products;
     }
 
     /**
@@ -93,7 +93,7 @@ public class ProductServiceImpl implements ProductService {
                 .filter(p -> matchesCategory(p, filters.category()))
                 .filter(p -> matchesPriceRange(p, filters.minPrice(), filters.maxPrice()))
                 .filter(p -> matchesSearchTerm(p, filters.searchTerm()))
-                .filter(p -> matchesStockStatus(p, filters.inStock()))
+                .filter(p -> matchesStockStatus(filters.inStock()))
                 .collect(Collectors.toList());
     }
 
@@ -104,8 +104,8 @@ public class ProductServiceImpl implements ProductService {
         if (category == null || category.trim().isEmpty()) {
             return true;
         }
-        return product.getCategoryName() != null &&
-                product.getCategoryName().equalsIgnoreCase(category.trim());
+        return product.getCategory() != null &&
+                product.getCategory().getCategoryName().equalsIgnoreCase(category.trim());
     }
 
     /**
@@ -136,8 +136,8 @@ public class ProductServiceImpl implements ProductService {
         }
 
         String term = searchTerm.toLowerCase().trim();
-        boolean matchesName = product.getProductName() != null &&
-                product.getProductName().toLowerCase().contains(term);
+        boolean matchesName = product.getName() != null &&
+                product.getName().toLowerCase().contains(term);
         boolean matchesDescription = product.getDescription() != null &&
                 product.getDescription().toLowerCase().contains(term);
 
@@ -146,20 +146,19 @@ public class ProductServiceImpl implements ProductService {
 
     /**
      * Check if product matches stock status filter
+     * Note: Stock status is now managed by Inventory table, not Product.
+     * This method is kept for filter compatibility but does not filter by stock.
      */
-    private boolean matchesStockStatus(Product product, Boolean inStock) {
-        if (inStock == null) {
-            return true;
-        }
-
-        boolean productInStock = product.getQuantityAvailable() > 0;
-        return productInStock == inStock;
+    private boolean matchesStockStatus(Boolean inStock) {
+        // Always return true since stock is managed separately in Inventory table
+        // The inStock parameter is kept for future enhancement if needed
+        return inStock == null || true;
     }
 
     /**
-     * Apply sorting to product list using the injected sort strategy (Merge Sort)
+     * Build Spring Sort object from string parameters
      */
-    private List<Product> applySorting(List<Product> products, String sortBy, String sortDirection) {
+    private Sort buildSort(String sortBy, String sortDirection) {
         if (sortBy == null || sortBy.trim().isEmpty()) {
             sortBy = "productId"; // Default sort
         }
@@ -168,42 +167,21 @@ public class ProductServiceImpl implements ProductService {
             sortDirection = "ASC"; // Default direction
         }
 
-        Comparator<Product> comparator = getComparator(sortBy);
-
-        if ("DESC".equalsIgnoreCase(sortDirection)) {
-            comparator = comparator.reversed();
-        }
-
-        // Use the injected sort strategy (Merge Sort) for sorting
-        return sortStrategy.sort(products, comparator);
-    }
-
-    /**
-     * Get comparator based on sort field
-     */
-    private Comparator<Product> getComparator(String sortBy) {
-        return switch (sortBy.toLowerCase()) {
-            case "productname", "name" -> Comparator.comparing(
-                    p -> p.getProductName() != null ? p.getProductName().toLowerCase() : "",
-                    Comparator.nullsLast(Comparator.naturalOrder())
-            );
-            case "price" -> Comparator.comparing(
-                    Product::getPrice,
-                    Comparator.nullsLast(Comparator.naturalOrder())
-            );
-            case "categoryname", "category" -> Comparator.comparing(
-                    p -> p.getCategoryName() != null ? p.getCategoryName().toLowerCase() : "",
-                    Comparator.nullsLast(Comparator.naturalOrder())
-            );
-            case "quantity", "quantityavailable" -> Comparator.comparingInt(Product::getQuantityAvailable);
-            case "createdat" -> Comparator.comparing(
-                    Product::getCreatedAt,
-                    Comparator.nullsLast(Comparator.naturalOrder())
-            );
-            case "productid", "id" -> Comparator.comparingInt(Product::getProductId);
+        // Map user-friendly field names to entity field names
+        String entityField = switch (sortBy.toLowerCase()) {
+            case "productname", "name" -> "name";
+            case "price" -> "price";
+            case "createdat" -> "createdAt";
+            case "productid", "id" -> "productId";
             default -> throw new BusinessException("Invalid sort field: " + sortBy +
-                    ". Valid fields: productName, price, categoryName, quantity, createdAt, productId");
+                    ". Valid fields: productName, price, createdAt, productId");
         };
+
+        Sort.Direction direction = "DESC".equalsIgnoreCase(sortDirection) 
+                ? Sort.Direction.DESC 
+                : Sort.Direction.ASC;
+
+        return Sort.by(direction, entityField);
     }
 
 @Override
@@ -241,39 +219,25 @@ public class ProductServiceImpl implements ProductService {
         put = @CachePut(value = "product", key = "#productId"),
         evict = @CacheEvict(value = "products", allEntries = true)
     )
-    public Product updateProduct(int productId, Product productDetails) {
+    public Product updateProduct(int productId, Product productDetails, Integer categoryId) {
         Product existingProduct = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
-        validateProduct(productDetails);
+        validateProduct(productDetails, categoryId);
 
-        if (existingProduct.getCategoryId() != productDetails.getCategoryId()) {
-            categoryRepository.findById(productDetails.getCategoryId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", productDetails.getCategoryId()));
+        // Update category if different
+        if (categoryId != null && (existingProduct.getCategory() == null || 
+                existingProduct.getCategory().getCategoryId() != categoryId)) {
+            Category category = categoryRepository.findById(categoryId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
+            existingProduct.setCategory(category);
         }
 
-        existingProduct.setProductName(productDetails.getProductName());
+        existingProduct.setName(productDetails.getName());
         existingProduct.setDescription(productDetails.getDescription());
         existingProduct.setPrice(productDetails.getPrice());
-        existingProduct.setCategoryId(productDetails.getCategoryId());
-
-        if (productDetails.getQuantityAvailable() >= 0) {
-            existingProduct.setQuantityAvailable(productDetails.getQuantityAvailable());
-        }
 
         return productRepository.save(existingProduct);
-    }
-
-    @Override
-    public Product updateProductQuantity(int productId, int quantity) {
-        if (quantity < 0) {
-            throw new BusinessException("Quantity cannot be negative");
-        }
-
-        Product product = getProductById(productId);
-        product.setQuantityAvailable(quantity);
-
-        return productRepository.save(product);
     }
 
     @Override
@@ -302,10 +266,11 @@ public class ProductServiceImpl implements ProductService {
             return productRepository.findAll(pageable);
         }
 
-        // With filters, we need to fetch all, filter, then create a page
+        // With filters, we need to fetch all with sorting, filter, then create a page
         // Note: This is less efficient than database-level filtering
         // For production, consider using Specifications or QueryDSL
-        List<Product> allProducts = productRepository.findAll();
+        Sort sort = pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.ASC, "productId");
+        List<Product> allProducts = productRepository.findAll(sort);
         List<Product> filteredProducts = applyFilters(allProducts, filters);
 
         // Apply pagination manually
@@ -336,16 +301,16 @@ public class ProductServiceImpl implements ProductService {
         return productRepository.searchProducts(searchTerm, pageable);
     }
 
-    private void validateProduct(Product product) {
+    private void validateProduct(Product product, Integer categoryId) {
         if (product == null) {
             throw new BusinessException("Product cannot be null");
         }
 
-        if (product.getProductName() == null || product.getProductName().trim().isEmpty()) {
+        if (product.getName() == null || product.getName().trim().isEmpty()) {
             throw new BusinessException("Product name is required");
         }
 
-        if (product.getProductName().length() > 255) {
+        if (product.getName().length() > 255) {
             throw new BusinessException("Product name cannot exceed 255 characters");
         }
 
@@ -357,7 +322,7 @@ public class ProductServiceImpl implements ProductService {
             throw new BusinessException("Product price cannot be negative");
         }
 
-        if (product.getCategoryId() <= 0) {
+        if (categoryId == null || categoryId <= 0) {
             throw new BusinessException("Valid category ID is required");
         }
     }

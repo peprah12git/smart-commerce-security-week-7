@@ -77,10 +77,9 @@ public class OrderServiceImp implements OrderService {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product", "id", item.getProductId()));
 
-            // Check stock availability
-            if (product.getQuantityAvailable() < item.getQuantity()) {
-                throw new BusinessException("Insufficient stock for product: " + product.getProductName() +
-                        ". Available: " + product.getQuantityAvailable() + ", Requested: " + item.getQuantity());
+            // Check stock availability using Inventory service
+            if (!inventoryService.hasEnoughStock(item.getProductId(), item.getQuantity())) {
+                throw new BusinessException("Insufficient stock for product: " + product.getName());
             }
 
             // Set unit price from product if not provided
@@ -261,9 +260,8 @@ public class OrderServiceImp implements OrderService {
             Product product = productRepository.findById(cartItem.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product", "id", cartItem.getProductId()));
 
-            if (product.getQuantityAvailable() < cartItem.getQuantity()) {
-                throw new BusinessException("Insufficient stock for product: " + product.getProductName() +
-                        ". Available: " + product.getQuantityAvailable() + ", Requested: " + cartItem.getQuantity());
+            if (!inventoryService.hasEnoughStock(cartItem.getProductId(), cartItem.getQuantity())) {
+                throw new BusinessException("Insufficient stock for product: " + product.getName());
             }
 
             BigDecimal subtotal = product.getPrice().multiply(new BigDecimal(cartItem.getQuantity()));

@@ -1,10 +1,10 @@
 package com.smartcommerce.utils;
 
-import com.smartcommerce.dtos.response.ProductResponse;
-import com.smartcommerce.model.Product;
-
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.smartcommerce.dtos.response.ProductResponse;
+import com.smartcommerce.model.Product;
 
 /**
  * Mapper utility class for Product entity and DTOs
@@ -21,12 +21,16 @@ public class ProductMapper {
 
         ProductResponse response = new ProductResponse();
         response.setProductId(product.getProductId());
-        response.setProductName(product.getProductName());
+        response.setProductName(product.getName());
         response.setDescription(product.getDescription());
         response.setPrice(product.getPrice());
-        response.setCategoryId(product.getCategoryId());
-        response.setCategoryName(product.getCategoryName());
-        response.setQuantityAvailable(product.getQuantityAvailable());
+        
+        // Set category details from relationship
+        if (product.getCategory() != null) {
+            response.setCategoryId(product.getCategory().getCategoryId());
+            response.setCategoryName(product.getCategory().getCategoryName());
+        }
+        
         response.setCreatedAt(product.getCreatedAt());
 
         return response;

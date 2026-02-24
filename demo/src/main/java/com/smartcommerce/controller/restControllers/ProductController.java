@@ -11,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -23,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.smartcommerce.dtos.request.CreateProductDTO;
 import com.smartcommerce.dtos.request.ProductFilterDTO;
 import com.smartcommerce.dtos.request.UpdateProductDTO;
-import com.smartcommerce.dtos.request.UpdateProductQuantityDTO;
 import com.smartcommerce.dtos.response.PagedResponse;
 import com.smartcommerce.dtos.response.ProductResponse;
 import com.smartcommerce.exception.ErrorResponse;
@@ -81,19 +79,14 @@ public class ProductController {
     @RequiredRole("ADMIN") // Only admins can create products
     public ResponseEntity<ProductResponse> createProduct(
             @Valid @RequestBody CreateProductDTO createProductDTO) {
-// ---creating a new product entity from the incomming DTp
-        Product product = new Product(
-                createProductDTO.productName(),
-                createProductDTO.description(),
-                createProductDTO.price(),
-                createProductDTO.categoryId()
-        );
-
-        if (createProductDTO.quantityAvailable() != null) {
-            product.setQuantityAvailable(createProductDTO.quantityAvailable());
-        }
+// ---creating a new product entity from the incoming DTO
+        Product product = new Product();
+        product.setName(createProductDTO.productName());
+        product.setDescription(createProductDTO.description());
+        product.setPrice(createProductDTO.price());
+        
 //----- Map the saved Product entity to a response DTO This ensures we only send the necessary fields back to the client
-        Product createdProduct = productService.createProduct(product);
+        Product createdProduct = productService.createProduct(product, createProductDTO.categoryId());
         ProductResponse response = ProductMapper.toProductResponse(createdProduct);
 //-----return HTTP with product data
         return ResponseEntity
@@ -314,45 +307,11 @@ public class ProductController {
             @Valid @RequestBody UpdateProductDTO updateProductDTO) {
 
         Product product = new Product();
-        product.setProductName(updateProductDTO.productName());
+        product.setName(updateProductDTO.productName());
         product.setDescription(updateProductDTO.description());
         product.setPrice(updateProductDTO.price());
-        product.setCategoryId(updateProductDTO.categoryId());
 
-        if (updateProductDTO.quantityAvailable() != null) {
-            product.setQuantityAvailable(updateProductDTO.quantityAvailable());
-        }
-
-        Product updatedProduct = productService.updateProduct(id, product);
-        ProductResponse response = ProductMapper.toProductResponse(updatedProduct);
-
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Update product quantity only
-     * PATCH /api/products/{id}/quantity
-     */
-    @Operation(summary = "Update product quantity", description = "Updates only the stock quantity of a product")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Quantity updated successfully",
-                    content = @Content(schema = @Schema(implementation = ProductResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Validation error",
-                    content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Product not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @RequiredRole("ADMIN")
-    @PatchMapping("/{id}/quantity")
-    public ResponseEntity<ProductResponse> updateProductQuantity(
-            @Parameter(description = "Product ID", required = true, example = "1")
-            @PathVariable int id,
-            @Valid @RequestBody UpdateProductQuantityDTO updateQuantityDTO) {
-
-        Product updatedProduct = productService.updateProductQuantity(
-                id,
-                updateQuantityDTO.quantity()
-        );
+        Product updatedProduct = productService.updateProduct(id, product, updateProductDTO.categoryId());
         ProductResponse response = ProductMapper.toProductResponse(updatedProduct);
 
         return ResponseEntity.ok(response);
