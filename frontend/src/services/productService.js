@@ -80,9 +80,9 @@ const ProductService = {
     await api.delete(`/products/${id}`);
   },
 
-  // Invalidate cache
-  invalidateCache: async () => {
-    await api.post('/products/cache/invalidate');
+  // Clear cache
+  clearCache: async () => {
+    await api.delete('/products/cache');
   },
 };
 

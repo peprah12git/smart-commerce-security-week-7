@@ -375,14 +375,14 @@ public class ProductController {
     }
 
     /**
-     * Invalidate product cache
-     * POST /api/products/cache/invalidate
+     * Clear product cache
+     * DELETE /api/products/cache
      */
-    @Operation(summary = "Invalidate product cache", description = "Clears the product cache to force fresh data retrieval")
-    @ApiResponse(responseCode = "200", description = "Cache invalidated successfully")
-    @PostMapping("/cache/invalidate")
-    public ResponseEntity<Void> invalidateCache() {
+    @Operation(summary = "Clear product cache", description = "Clears the product cache to force fresh data retrieval")
+    @ApiResponse(responseCode = "204", description = "Cache cleared successfully")
+    @DeleteMapping("/cache")
+    public ResponseEntity<Void> clearProductCache() {
         productService.invalidateProductCache();
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 }

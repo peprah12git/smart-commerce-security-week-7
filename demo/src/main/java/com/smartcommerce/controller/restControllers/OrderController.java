@@ -223,9 +223,10 @@ public class OrderController {
 
     /**
      * Cancel an order
-     * POST /api/orders/{orderId}/cancel
+     * DELETE /api/orders/{orderId}/cancellation
+     * Note: Prefer using PATCH /api/orders/{orderId}/status with status='cancelled' for RESTful approach
      */
-    @Operation(summary = "Cancel an order", description = "Cancels an existing order (sets status to 'cancelled')")
+    @Operation(summary = "Cancel an order", description = "Cancels an existing order (sets status to 'cancelled'). Consider using PATCH /orders/{orderId}/status instead.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Order cancelled successfully",
                     content = @Content(schema = @Schema(implementation = OrderResponse.class))),
@@ -234,7 +235,7 @@ public class OrderController {
             @ApiResponse(responseCode = "404", description = "Order not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @PostMapping("/{orderId}/cancel")
+    @DeleteMapping("/{orderId}/cancellation")
     public ResponseEntity<OrderResponse> cancelOrder(
             @Parameter(description = "Order ID", required = true, example = "1")
             @PathVariable int orderId) {
@@ -286,10 +287,10 @@ public class OrderController {
     }
 
     /**
-     * Checkout from cart
-     * POST /api/orders/checkout/{userId}
+     * Create order from cart
+     * POST /api/orders/from-cart
      */
-    @Operation(summary = "Checkout from cart", description = "Creates an order from user's cart items, validates stock, deducts inventory, and clears cart")
+    @Operation(summary = "Create order from cart", description = "Creates an order from user's cart items, validates stock, deducts inventory, and clears cart")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Order created successfully from cart",
                     content = @Content(schema = @Schema(implementation = OrderResponse.class))),
@@ -298,8 +299,8 @@ public class OrderController {
             @ApiResponse(responseCode = "404", description = "User not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @PostMapping("/checkout/{userId}")
-    public ResponseEntity<OrderResponse> checkoutFromCart(
+    @PostMapping("/from-cart")
+    public ResponseEntity<OrderResponse> createOrderFromCart(
             @RequestAttribute("userId") Integer authenticatedUserId) {
 
         Order order = orderService.checkoutFromCart(authenticatedUserId);

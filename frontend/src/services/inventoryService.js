@@ -33,13 +33,13 @@ const InventoryService = {
 
   // Add stock
   addStock: async (productId, quantity) => {
-    const response = await api.post(`/inventory/${productId}/add-stock`, { quantity });
+    const response = await api.post(`/inventory/${productId}/stock-additions`, { quantity });
     return response.data;
   },
 
   // Reduce stock
   reduceStock: async (productId, quantity) => {
-    const response = await api.post(`/inventory/${productId}/reduce-stock`, { quantity });
+    const response = await api.post(`/inventory/${productId}/stock-reductions`, { quantity });
     return response.data;
   },
 

@@ -2,6 +2,10 @@ package com.smartcommerce.service.imp;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +42,12 @@ public class UserServiceImp implements UserService {
      * @throws DuplicateResourceException if email already exists
      * @throws BusinessException          if user creation fails
      */
+    @Override
+    @Caching(evict = {
+        @CacheEvict(value = "users", allEntries = true),
+        @CacheEvict(value = "user", key = "#result.userId"),
+        @CacheEvict(value = "userByEmail", key = "#result.email")
+    })
     public User createUser(User user) {
         // Validate input
         validateUser(user);
@@ -65,7 +75,9 @@ public class UserServiceImp implements UserService {
      *
      * @return List of all users
      */
+    @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "users", key = "'all'")
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
@@ -77,7 +89,9 @@ public class UserServiceImp implements UserService {
      * @return User object
      * @throws ResourceNotFoundException if user not found
      */
+    @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "user", key = "#userId")
     public User getUserById(int userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
@@ -90,7 +104,9 @@ public class UserServiceImp implements UserService {
      * @return User object
      * @throws ResourceNotFoundException if user not found
      */
+    @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "userByEmail", key = "#email")
     public User getUserByEmail(String email) {
         if (email == null || email.trim().isEmpty()) {
             throw new BusinessException("Email cannot be empty");
@@ -110,6 +126,11 @@ public class UserServiceImp implements UserService {
      * @throws DuplicateResourceException if email already exists for another user
      * @throws BusinessException          if update fails
      */
+    @Override
+    @Caching(
+        put = {@CachePut(value = "user", key = "#userId"), @CachePut(value = "userByEmail", key = "#result.email")},
+        evict = @CacheEvict(value = "users", allEntries = true)
+    )
     public User updateUser(int userId, User userDetails) {
         // Check if user exists
         User existingUser = userRepository.findById(userId)
@@ -155,6 +176,12 @@ public class UserServiceImp implements UserService {
      * @throws ResourceNotFoundException if user not found
      * @throws BusinessException         if deletion fails
      */
+    @Override
+    @Caching(evict = {
+        @CacheEvict(value = "users", allEntries = true),
+        @CacheEvict(value = "user", key = "#userId"),
+        @CacheEvict(value = "userByEmail", allEntries = true)
+    })
     public void deleteUser(int userId) {
         // Check if user exists
         if (!userRepository.existsById(userId)) {

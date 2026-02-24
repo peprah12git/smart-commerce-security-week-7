@@ -3,6 +3,10 @@ package com.smartcommerce.service.imp;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +44,11 @@ public class CategoryService implements CategoryServiceInterface {
      * @throws DuplicateResourceException if category name already exists
      * @throws BusinessException          if category creation fails
      */
+    @Override
+    @Caching(evict = {
+        @CacheEvict(value = "categories", allEntries = true),
+        @CacheEvict(value = "category", key = "#result.categoryId")
+    })
     public Category createCategory(Category category) {
         // Validate input
         validateCategory(category);
@@ -62,7 +71,9 @@ public class CategoryService implements CategoryServiceInterface {
      *
      * @return List of all categories
      */
+    @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "categories", key = "'all'")
     public List<Category> getAllCategories() {
         return categoryRepository.findAll();
     }
@@ -74,7 +85,9 @@ public class CategoryService implements CategoryServiceInterface {
      * @return Category object
      * @throws ResourceNotFoundException if category not found
      */
+    @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "category", key = "#categoryId")
     public Category getCategoryById(int categoryId) {
         return categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
@@ -87,7 +100,9 @@ public class CategoryService implements CategoryServiceInterface {
      * @return Category object
      * @throws ResourceNotFoundException if category not found
      */
+    @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "category", key = "'name:' + #categoryName")
     public Category getCategoryByName(String categoryName) {
         if (categoryName == null || categoryName.trim().isEmpty()) {
             throw new BusinessException("Category name cannot be empty");
@@ -110,6 +125,11 @@ public class CategoryService implements CategoryServiceInterface {
      * @throws DuplicateResourceException if category name already exists
      * @throws BusinessException          if update fails
      */
+    @Override
+    @Caching(
+        put = @CachePut(value = "category", key = "#categoryId"),
+        evict = @CacheEvict(value = "categories", allEntries = true)
+    )
     public Category updateCategory(int categoryId, Category categoryDetails) {
         // Check if category exists
         Category existingCategory = categoryRepository.findById(categoryId)
@@ -144,6 +164,11 @@ public class CategoryService implements CategoryServiceInterface {
      * @throws ResourceNotFoundException if category not found
      * @throws BusinessException         if category has products or deletion fails
      */
+    @Override
+    @Caching(evict = {
+        @CacheEvict(value = "categories", allEntries = true),
+        @CacheEvict(value = "category", key = "#categoryId")
+    })
     public void deleteCategory(int categoryId) {
         // Check if category exists
         Category category = categoryRepository.findById(categoryId)

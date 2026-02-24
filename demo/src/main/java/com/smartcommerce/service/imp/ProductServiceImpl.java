@@ -5,6 +5,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +47,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Caching(evict = {
+        @CacheEvict(value = "products", allEntries = true),
+        @CacheEvict(value = "product", key = "#result.productId")
+    })
     public Product createProduct(Product product) {
         // Business validation
         validateProduct(product);
@@ -56,6 +64,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'all'")
     public List<Product> getAllProducts() {
         return productRepository.findAll();
     }
@@ -199,6 +208,7 @@ public class ProductServiceImpl implements ProductService {
 
 @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "product", key = "#productId")
     public Product getProductById(int productId) {
         return productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
@@ -206,6 +216,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'category:' + #categoryName")
     public List<Product> getProductsByCategory(String categoryName) {
         if (categoryName == null || categoryName.trim().isEmpty()) {
             throw new BusinessException("Category name cannot be empty");
@@ -216,6 +227,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'search:' + #searchTerm")
     public List<Product> searchProducts(String searchTerm) {
         if (searchTerm == null || searchTerm.trim().isEmpty()) {
             throw new BusinessException("Search term cannot be empty");
@@ -225,6 +237,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Caching(
+        put = @CachePut(value = "product", key = "#productId"),
+        evict = @CacheEvict(value = "products", allEntries = true)
+    )
     public Product updateProduct(int productId, Product productDetails) {
         Product existingProduct = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
@@ -261,6 +277,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Caching(evict = {
+        @CacheEvict(value = "products", allEntries = true),
+        @CacheEvict(value = "product", key = "#productId")
+    })
     public void deleteProduct(int productId) {
         if (!productRepository.existsById(productId)) {
             throw new ResourceNotFoundException("Product", "id", productId);
