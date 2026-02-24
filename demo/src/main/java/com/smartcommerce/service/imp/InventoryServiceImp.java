@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -116,10 +117,13 @@ public class InventoryServiceImp implements InventoryServiceInterface {
     @Override
     public boolean reduceStock(int productId, int quantity) {
         // Get fresh data from database, not cache
-        Inventory inv = inventoryDAO.getInventoryByProductId(productId);
-        if (inv != null && inv.getQuantityAvailable() >= quantity) {
-            int newQuantity = inv.getQuantityAvailable() - quantity;
-            return updateInventory(productId, newQuantity);
+        Optional<Inventory> invOpt = inventoryRepository.findByProductId(productId);
+        if (invOpt.isPresent()) {
+            Inventory inv = invOpt.get();
+            if (inv.getQuantityAvailable() >= quantity) {
+                int newQuantity = inv.getQuantityAvailable() - quantity;
+                return updateInventory(productId, newQuantity);
+            }
         }
         return false;
     }
@@ -130,8 +134,9 @@ public class InventoryServiceImp implements InventoryServiceInterface {
     @Override
     public boolean addStock(int productId, int quantity) {
         // Get fresh data from database, not cache
-        Inventory inv = inventoryDAO.getInventoryByProductId(productId);
-        if (inv != null) {
+        Optional<Inventory> invOpt = inventoryRepository.findByProductId(productId);
+        if (invOpt.isPresent()) {
+            Inventory inv = invOpt.get();
             int newQuantity = inv.getQuantityAvailable() + quantity;
             return updateInventory(productId, newQuantity);
         }
