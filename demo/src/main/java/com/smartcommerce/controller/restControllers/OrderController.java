@@ -4,6 +4,10 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,6 +25,7 @@ import com.smartcommerce.dtos.request.OrderItemDTO;
 import com.smartcommerce.dtos.request.UpdateOrderStatusDTO;
 import com.smartcommerce.dtos.response.OrderItemResponse;
 import com.smartcommerce.dtos.response.OrderResponse;
+import com.smartcommerce.dtos.response.PagedResponse;
 import com.smartcommerce.exception.ErrorResponse;
 import com.smartcommerce.exception.ValidationErrorResponse;
 import com.smartcommerce.model.Order;
@@ -114,6 +119,23 @@ public class OrderController {
     }
 
     /**
+     * Get all orders with pagination
+     * GET /api/orders/paged?page=0&size=10&sort=orderDate,desc
+     */
+    @Operation(summary = "Get all orders (paginated)", description = "Retrieves all orders with pagination. Default page size is 10, sorted by order date descending.")
+    @ApiResponse(responseCode = "200", description = "Paginated orders retrieved successfully")
+    @GetMapping("/paged")
+    public ResponseEntity<PagedResponse<OrderResponse>> getAllOrdersPaged(
+            @PageableDefault(size = 10, sort = "orderDate", direction = Sort.Direction.DESC) Pageable pageable) {
+        
+        Page<Order> ordersPage = orderService.getAllOrders(pageable);
+        Page<OrderResponse> responsePage = ordersPage.map(OrderMapper::toOrderResponse);
+        PagedResponse<OrderResponse> pagedResponse = PagedResponse.of(responsePage);
+
+        return ResponseEntity.ok(pagedResponse);
+    }
+
+    /**
      * Get order by ID
      * GET /api/orders/{orderId}
      */
@@ -151,6 +173,28 @@ public class OrderController {
         List<Order> orders = orderService.getOrdersByUserId(authenticatedUserId);
         List<OrderResponse> response = OrderMapper.toOrderResponseList(orders);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get orders by user ID with pagination
+     * GET /api/orders/user/{userId}/paged?page=0&size=10&sort=orderDate,desc
+     */
+    @Operation(summary = "Get orders by user (paginated)", description = "Retrieves paginated orders for a specific user. Default page size is 10, sorted by order date descending.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Paginated orders retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "User not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/user/{userId}/paged")
+    public ResponseEntity<PagedResponse<OrderResponse>> getOrdersByUserIdPaged(
+            @RequestAttribute("userId") Integer authenticatedUserId,
+            @PageableDefault(size = 10, sort = "orderDate", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        Page<Order> ordersPage = orderService.getOrdersByUserId(authenticatedUserId, pageable);
+        Page<OrderResponse> responsePage = ordersPage.map(OrderMapper::toOrderResponse);
+        PagedResponse<OrderResponse> pagedResponse = PagedResponse.of(responsePage);
+
+        return ResponseEntity.ok(pagedResponse);
     }
 
     /**
@@ -262,5 +306,82 @@ public class OrderController {
         Order order = orderService.checkoutFromCart(authenticatedUserId);
         OrderResponse response = OrderMapper.toOrderResponse(order);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+    
+    // ============================================================
+    // OPTIMIZED REPORTING ENDPOINTS - User Story 3.2
+    // ============================================================
+    
+    /**
+     * Get orders by status (optimized for reporting)
+     * GET /api/orders/status/{status}
+     */
+    @Operation(summary = "Get orders by status", 
+               description = "Retrieves all orders with a specific status (optimized with JOIN FETCH and composite index)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Orders retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid status")
+    })
+    @GetMapping("/status/{status}")
+    public ResponseEntity<List<OrderResponse>> getOrdersByStatus(
+            @Parameter(description = "Order status (pending, confirmed, processing, shipped, delivered, cancelled)", 
+                       required = true, example = "pending")
+            @PathVariable String status) {
+
+        List<Order> orders = orderService.getOrdersByStatus(status);
+        List<OrderResponse> response = OrderMapper.toOrderResponseList(orders);
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Get user orders by status (optimized for filtered order history)
+     * GET /api/orders/user/status/{status}
+     */
+    @Operation(summary = "Get user orders by status", 
+               description = "Retrieves user's orders filtered by status (optimized with composite index user_id + status)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User orders retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "User not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/user/status/{status}")
+    public ResponseEntity<List<OrderResponse>> getUserOrdersByStatus(
+            @RequestAttribute("userId") Integer userId,
+            @Parameter(description = "Order status", required = true, example = "completed")
+            @PathVariable String status) {
+
+        List<Order> orders = orderService.getUserOrdersByStatus(userId, status);
+        List<OrderResponse> response = OrderMapper.toOrderResponseList(orders);
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Get orders in date range (optimized for reporting)
+     * GET /api/orders/report/date-range
+     */
+    @Operation(summary = "Get orders in date range", 
+               description = "Retrieves orders within a specific date range for reporting (optimized with JOIN FETCH)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Orders retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid date range")
+    })
+    @GetMapping("/report/date-range")
+    public ResponseEntity<List<OrderResponse>> getOrdersInDateRange(
+            @Parameter(description = "Start date (ISO format: 2026-01-01T00:00:00)", required = true)
+            @org.springframework.web.bind.annotation.RequestParam String startDate,
+            @Parameter(description = "End date (ISO format: 2026-12-31T23:59:59)", required = true)
+            @org.springframework.web.bind.annotation.RequestParam String endDate) {
+
+        // Parse timestamps
+        java.sql.Timestamp start = java.sql.Timestamp.valueOf(
+            startDate.replace("T", " ").substring(0, 19)
+        );
+        java.sql.Timestamp end = java.sql.Timestamp.valueOf(
+            endDate.replace("T", " ").substring(0, 19)
+        );
+
+        List<Order> orders = orderService.getOrdersInDateRange(start, end);
+        List<OrderResponse> response = OrderMapper.toOrderResponseList(orders);
+        return ResponseEntity.ok(response);
     }
 }

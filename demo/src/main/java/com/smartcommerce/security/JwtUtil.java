@@ -11,7 +11,7 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 
 @Component
-public class JwtUtil {
+public class   JwtUtil {
 
     private final SecretKey key = Keys.hmacShaKeyFor("SmartCommerceSecretKeyForJWTTokenGeneration12345".getBytes());
     private final long expiration = 86400000; // 24 hours

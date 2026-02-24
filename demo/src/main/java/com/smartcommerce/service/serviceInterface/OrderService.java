@@ -2,6 +2,9 @@ package com.smartcommerce.service.serviceInterface;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.Order;
@@ -25,6 +28,14 @@ public interface OrderService {
     Order createOrder(Order order, List<OrderItem> orderItems);
 
     /**
+     * Retrieves all orders (paginated)
+     *
+     * @param pageable Pagination and sorting parameters
+     * @return Paginated orders
+     */
+    Page<Order> getAllOrders(Pageable pageable);
+
+    /**
      * Retrieves all orders
      *
      * @return List of all orders
@@ -39,6 +50,16 @@ public interface OrderService {
      * @throws ResourceNotFoundException if order not found
      */
     Order getOrderById(int orderId);
+
+    /**
+     * Retrieves all orders for a specific user (paginated)
+     *
+     * @param userId   User ID
+     * @param pageable Pagination and sorting parameters
+     * @return Paginated orders for the user
+     * @throws ResourceNotFoundException if user not found
+     */
+    Page<Order> getOrdersByUserId(int userId, Pageable pageable);
 
     /**
      * Retrieves all orders for a specific user
@@ -98,4 +119,38 @@ public interface OrderService {
      * @throws BusinessException if insufficient stock or order creation fails
      */
     Order checkoutFromCart(int userId);
+    
+    // ============================================================
+    // OPTIMIZED REPORTING QUERIES - User Story 3.2
+    // ============================================================
+    
+    /**
+     * Get orders by status with items (optimized for reporting dashboards)
+     * Uses composite index (status, order_date) and JOIN FETCH
+     *
+     * @param status Order status
+     * @return List of orders with items
+     */
+    List<Order> getOrdersByStatus(String status);
+    
+    /**
+     * Get user orders by status (optimized for user order history filtering)
+     * Uses composite index (user_id, status) and JOIN FETCH
+     *
+     * @param userId User ID
+     * @param status Order status
+     * @return List of orders with items
+     * @throws ResourceNotFoundException if user not found
+     */
+    List<Order> getUserOrdersByStatus(int userId, String status);
+    
+    /**
+     * Get orders within date range (optimized for reporting)
+     * Uses index on order_date and JOIN FETCH
+     *
+     * @param startDate Start date
+     * @param endDate End date
+     * @return List of orders with items in date range
+     */
+    List<Order> getOrdersInDateRange(java.sql.Timestamp startDate, java.sql.Timestamp endDate);
 }

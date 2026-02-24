@@ -1,125 +1,88 @@
 package com.smartcommerce.service.imp;
 
-import com.smartcommerce.dao.interfaces.CategoryDaoInterface;
-import com.smartcommerce.dao.interfaces.ProductDaoInterface;
-import com.smartcommerce.dtos.request.ProductFilterDTO;
-import com.smartcommerce.exception.BusinessException;
-import com.smartcommerce.exception.ResourceNotFoundException;
-import com.smartcommerce.model.Category;
-import com.smartcommerce.model.Product;
-import com.smartcommerce.service.serviceInterface.ProductService;
-import com.smartcommerce.sorting.SortStrategy;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.smartcommerce.dtos.request.ProductFilterDTO;
+import com.smartcommerce.exception.BusinessException;
+import com.smartcommerce.exception.ResourceNotFoundException;
+import com.smartcommerce.model.Category;
+import com.smartcommerce.model.Product;
+import com.smartcommerce.repositories.CategoryRepository;
+import com.smartcommerce.repositories.ProductRepository;
+import com.smartcommerce.service.serviceInterface.ProductService;
+import com.smartcommerce.sorting.SortStrategy;
+
 /**
  * Service implementation for Product entity
- * Handles business logic, validation, pagination, sorting, and filtering
+ * Handles business logic, validation, sorting, and filtering
  */
 @Service
 @Transactional
 public class ProductServiceImpl implements ProductService {
 
-    private final ProductDaoInterface productDao;
-    private final CategoryDaoInterface categoryDao;
+    private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
     private final SortStrategy<Product> sortStrategy;
 
     // Manual constructor for dependency injection
-    public ProductServiceImpl(ProductDaoInterface productDao,
-                              CategoryDaoInterface categoryDao,
+    public ProductServiceImpl(ProductRepository productRepository,
+                              CategoryRepository categoryRepository,
                               SortStrategy<Product> sortStrategy) {
-        this.productDao = productDao;
-        this.categoryDao = categoryDao;
+        this.productRepository = productRepository;
+        this.categoryRepository = categoryRepository;
         this.sortStrategy = sortStrategy;
     }
 
     @Override
+    @Caching(evict = {
+        @CacheEvict(value = "products", allEntries = true),
+        @CacheEvict(value = "product", key = "#result.productId")
+    })
     public Product createProduct(Product product) {
         // Business validation
         validateProduct(product);
         // check if category exist
-        Category category = categoryDao.getCategoryById(product.getCategoryId());
-        if (category == null) {
-            throw new ResourceNotFoundException("Category", "id", product.getCategoryId());
-        }
+        Category category = categoryRepository.findById(product.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", product.getCategoryId()));
 
-        boolean success = productDao.addProduct(product);
-        if (!success) {
-            throw new BusinessException("Failed to create product");
-        }
-//---invalidate cache
-        productDao.invalidateCache();
-
-        List<Product> products = productDao.getAllProducts();
-        Product createdProduct = products.stream()
-                .filter(p -> p.getProductName().equals(product.getProductName())
-                        && p.getCategoryId() == product.getCategoryId())
-                .findFirst()
-                .orElse(null);
-
-        if (createdProduct == null) {
-            throw new BusinessException("Product created but could not be retrieved");
-        }
-
-        return createdProduct;
+        Product savedProduct = productRepository.save(product);
+        return savedProduct;
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'all'")
     public List<Product> getAllProducts() {
-        return productDao.getAllProducts();
+        return productRepository.findAll();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Product> getProductsWithPaginationAndFilters(
-            int pageNumber, // which page of result to fetch
-            int pageSize, // number of items per page
+    public List<Product> getProductsWithFilters(
             String sortBy,
             String sortDirection,
             ProductFilterDTO filters) {
 
-        // Validate pagination parameters
-        if (pageNumber < 0) {
-            throw new BusinessException("Page number cannot be negative");
-        }
-        if (pageSize <= 0) {
-            throw new BusinessException("Page size must be greater than 0");
-        }
-        if (pageSize > 100) {
-            throw new BusinessException("Page size cannot exceed 100");
-        }
-
-        // Get all products
-        List<Product> products = productDao.getAllProducts();
-
-        // Apply filters
-        if (filters != null && filters.hasFilters()) {
-            products = applyFilters(products, filters);
-        }
-
-        // Apply sorting
-        products = applySorting(products, sortBy, sortDirection);
-
-        // Apply pagination
-        return applyPagination(products, pageNumber, pageSize);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public long countProductsWithFilters(ProductFilterDTO filters) {
-        List<Product> products = productDao.getAllProducts();
+        List<Product> products = productRepository.findAll();
 
         if (filters != null && filters.hasFilters()) {
             products = applyFilters(products, filters);
         }
 
-        return products.size();
+        return applySorting(products, sortBy, sortDirection);
     }
 
     /**
@@ -243,67 +206,50 @@ public class ProductServiceImpl implements ProductService {
         };
     }
 
-    /**
-     * Apply pagination to product list
-     */
-    private List<Product> applyPagination(List<Product> products, int pageNumber, int pageSize) {
-        // determine the starting index  page
-        int startIndex = pageNumber * pageSize;
-        // Step 2: Check if the starting index is beyond the list size
-        // If it is, the requested page is out of bounds, so return an empty list
-        if (startIndex >= products.size()) {
-            return List.of(); // Return empty list if page is out of bounds
-        }
-        //calculate the ending index of the page
-        int endIndex = Math.min(startIndex + pageSize, products.size());
-        // return the sublist requesting the requested page
-        return products.subList(startIndex, endIndex);
-    }
-
-    @Override
+@Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "product", key = "#productId")
     public Product getProductById(int productId) {
-        Product product = productDao.getProductById(productId);
-        if (product == null) {
-            throw new ResourceNotFoundException("Product", "id", productId);
-        }
-        return product;
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'category:' + #categoryName")
     public List<Product> getProductsByCategory(String categoryName) {
         if (categoryName == null || categoryName.trim().isEmpty()) {
             throw new BusinessException("Category name cannot be empty");
         }
 
-        return productDao.getProductsByCategory(categoryName);
+        return productRepository.findByCategoryName(categoryName);
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'search:' + #searchTerm")
     public List<Product> searchProducts(String searchTerm) {
         if (searchTerm == null || searchTerm.trim().isEmpty()) {
             throw new BusinessException("Search term cannot be empty");
         }
 
-        return productDao.searchProducts(searchTerm);
+        return productRepository.searchProducts(searchTerm);
     }
 
     @Override
+    @Caching(
+        put = @CachePut(value = "product", key = "#productId"),
+        evict = @CacheEvict(value = "products", allEntries = true)
+    )
     public Product updateProduct(int productId, Product productDetails) {
-        Product existingProduct = productDao.getProductById(productId);
-        if (existingProduct == null) {
-            throw new ResourceNotFoundException("Product", "id", productId);
-        }
+        Product existingProduct = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
         validateProduct(productDetails);
 
         if (existingProduct.getCategoryId() != productDetails.getCategoryId()) {
-            Category category = categoryDao.getCategoryById(productDetails.getCategoryId());
-            if (category == null) {
-                throw new ResourceNotFoundException("Category", "id", productDetails.getCategoryId());
-            }
+            categoryRepository.findById(productDetails.getCategoryId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", productDetails.getCategoryId()));
         }
 
         existingProduct.setProductName(productDetails.getProductName());
@@ -315,14 +261,7 @@ public class ProductServiceImpl implements ProductService {
             existingProduct.setQuantityAvailable(productDetails.getQuantityAvailable());
         }
 
-        boolean success = productDao.updateProduct(existingProduct);
-        if (!success) {
-            throw new BusinessException("Failed to update product");
-        }
-
-        productDao.invalidateCache();
-
-        return getProductById(productId);
+        return productRepository.save(existingProduct);
     }
 
     @Override
@@ -334,33 +273,67 @@ public class ProductServiceImpl implements ProductService {
         Product product = getProductById(productId);
         product.setQuantityAvailable(quantity);
 
-        boolean success = productDao.updateProduct(product);
-        if (!success) {
-            throw new BusinessException("Failed to update product quantity");
-        }
-
-        productDao.invalidateCache();
-        return getProductById(productId);
+        return productRepository.save(product);
     }
 
     @Override
+    @Caching(evict = {
+        @CacheEvict(value = "products", allEntries = true),
+        @CacheEvict(value = "product", key = "#productId")
+    })
     public void deleteProduct(int productId) {
-        Product product = productDao.getProductById(productId);
-        if (product == null) {
+        if (!productRepository.existsById(productId)) {
             throw new ResourceNotFoundException("Product", "id", productId);
         }
 
-        boolean success = productDao.deleteProduct(productId);
-        if (!success) {
-            throw new BusinessException("Failed to delete product");
-        }
-
-        productDao.invalidateCache();
+        productRepository.deleteById(productId);
     }
 
     @Override
     public void invalidateProductCache() {
-        productDao.invalidateCache();
+        // No cache with JPA/Spring Data - managed by JPA provider
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Product> getProductsWithFilters(Pageable pageable, ProductFilterDTO filters) {
+        // If no filters, use repository pagination directly
+        if (filters == null || !filters.hasFilters()) {
+            return productRepository.findAll(pageable);
+        }
+
+        // With filters, we need to fetch all, filter, then create a page
+        // Note: This is less efficient than database-level filtering
+        // For production, consider using Specifications or QueryDSL
+        List<Product> allProducts = productRepository.findAll();
+        List<Product> filteredProducts = applyFilters(allProducts, filters);
+
+        // Apply pagination manually
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), filteredProducts.size());
+        List<Product> pageContent = filteredProducts.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, filteredProducts.size());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Product> getProductsByCategory(String categoryName, Pageable pageable) {
+        if (categoryName == null || categoryName.trim().isEmpty()) {
+            throw new BusinessException("Category name cannot be empty");
+        }
+
+        return productRepository.findByCategoryName(categoryName, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Product> searchProducts(String searchTerm, Pageable pageable) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            throw new BusinessException("Search term cannot be empty");
+        }
+
+        return productRepository.searchProducts(searchTerm, pageable);
     }
 
     private void validateProduct(Product product) {

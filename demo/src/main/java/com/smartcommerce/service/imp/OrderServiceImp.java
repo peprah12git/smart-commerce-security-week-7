@@ -4,19 +4,23 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.smartcommerce.dao.interfaces.OrderDaoInterface;
-import com.smartcommerce.dao.interfaces.OrderItemDaoInterface;
-import com.smartcommerce.dao.interfaces.ProductDaoInterface;
-import com.smartcommerce.dao.interfaces.UserDaoInterface;
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.Order;
 import com.smartcommerce.model.OrderItem;
 import com.smartcommerce.model.Product;
 import com.smartcommerce.model.User;
+import com.smartcommerce.repositories.OrderItemRepository;
+import com.smartcommerce.repositories.OrderRepository;
+import com.smartcommerce.repositories.ProductRepository;
+import com.smartcommerce.repositories.UserRepository;
 import com.smartcommerce.service.serviceInterface.InventoryServiceInterface;
 import com.smartcommerce.service.serviceInterface.OrderService;
 
@@ -28,10 +32,10 @@ import com.smartcommerce.service.serviceInterface.OrderService;
 @Transactional
 public class OrderServiceImp implements OrderService {
 
-    private final OrderDaoInterface orderDao;
-    private final OrderItemDaoInterface orderItemDao;
-    private final UserDaoInterface userDao;
-    private final ProductDaoInterface productDao;
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final UserRepository userRepository;
+    private final ProductRepository productRepository;
     private final InventoryServiceInterface inventoryService;
     private final com.smartcommerce.service.serviceInterface.CartItemService cartItemService;
 
@@ -41,27 +45,26 @@ public class OrderServiceImp implements OrderService {
     );
 
     @Autowired
-    public OrderServiceImp(OrderDaoInterface orderDao,
-                           OrderItemDaoInterface orderItemDao,
-                           UserDaoInterface userDao,
-                           ProductDaoInterface productDao,
+    public OrderServiceImp(OrderRepository orderRepository,
+                           OrderItemRepository orderItemRepository,
+                           UserRepository userRepository,
+                           ProductRepository productRepository,
                            InventoryServiceInterface inventoryService,
                            com.smartcommerce.service.serviceInterface.CartItemService cartItemService) {
-        this.orderDao = orderDao;
-        this.orderItemDao = orderItemDao;
-        this.userDao = userDao;
-        this.productDao = productDao;
+        this.orderRepository = orderRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.userRepository = userRepository;
+        this.productRepository = productRepository;
         this.inventoryService = inventoryService;
         this.cartItemService = cartItemService;
     }
 
     @Override
+    @Transactional(readOnly = false,propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED)
     public Order createOrder(Order order, List<OrderItem> orderItems) {
         // Validate user exists
-        User user = userDao.getUserById(order.getUserId());
-        if (user == null) {
-            throw new ResourceNotFoundException("User", "id", order.getUserId());
-        }
+        User user = userRepository.findById(order.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", order.getUserId()));
 
         // Validate order items
         if (orderItems == null || orderItems.isEmpty()) {
@@ -71,10 +74,8 @@ public class OrderServiceImp implements OrderService {
         // Calculate total and validate products
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (OrderItem item : orderItems) {
-            Product product = productDao.getProductById(item.getProductId());
-            if (product == null) {
-                throw new ResourceNotFoundException("Product", "id", item.getProductId());
-            }
+            Product product = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", item.getProductId()));
 
             // Check stock availability
             if (product.getQuantityAvailable() < item.getQuantity()) {
@@ -99,18 +100,12 @@ public class OrderServiceImp implements OrderService {
         }
 
         // Create order
-        boolean orderCreated = orderDao.addOrder(order);
-        if (!orderCreated) {
-            throw new BusinessException("Failed to create order");
-        }
+        Order savedOrder = orderRepository.save(order);
 
         // Add order items
         for (OrderItem item : orderItems) {
-            item.setOrderId(order.getOrderId());
-            boolean itemCreated = orderItemDao.addOrderItem(item);
-            if (!itemCreated) {
-                throw new BusinessException("Failed to add order item for product ID: " + item.getProductId());
-            }
+            item.setOrderId(savedOrder.getOrderId());
+            orderItemRepository.save(item);
         }
 
         // Reduce inventory for ordered items
@@ -123,63 +118,46 @@ public class OrderServiceImp implements OrderService {
         }
 
         // Set order items and return
-        order.setOrderItems(orderItems);
-        order.setUserName(user.getName());
-        return order;
+        savedOrder.setOrderItems(orderItems);
+        savedOrder.setUserName(user.getName());
+        return savedOrder;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Order> getAllOrders() {
-        List<Order> orders = orderDao.getAllOrders();
-        // Load order items for each order
-        for (Order order : orders) {
-            List<OrderItem> items = orderItemDao.getOrderItemsByOrderId(order.getOrderId());
-            order.setOrderItems(items);
-        }
-        return orders;
+        // OPTIMIZED: Use JOIN FETCH to load orders with items in single query
+        // Eliminates N+1 query problem
+        return orderRepository.findAllWithItemsOrderByDateDesc();
     }
 
     @Override
     @Transactional(readOnly = true)
     public Order getOrderById(int orderId) {
-        Order order = orderDao.getOrderById(orderId);
-        if (order == null) {
-            throw new ResourceNotFoundException("Order", "id", orderId);
-        }
-
-        // Load order items
-        List<OrderItem> items = orderItemDao.getOrderItemsByOrderId(orderId);
-        order.setOrderItems(items);
-
-        return order;
+        // OPTIMIZED: Use JOIN FETCH to load order with items in single query
+        return orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Order> getOrdersByUserId(int userId) {
         // Validate user exists
-        User user = userDao.getUserById(userId);
-        if (user == null) {
+        if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
 
-        List<Order> orders = orderDao.getOrdersByUserId(userId);
-        // Load order items for each order
-        for (Order order : orders) {
-            List<OrderItem> items = orderItemDao.getOrderItemsByOrderId(order.getOrderId());
-            order.setOrderItems(items);
-        }
-        return orders;
+        // OPTIMIZED: Use JOIN FETCH to load orders with items in single query
+        // Uses composite index (user_id, order_date)
+        return orderRepository.findByUserIdWithItemsOrderByDateDesc(userId);
     }
 
     @Override
+    @Transactional(readOnly = false)
     public Order updateOrderStatus(int orderId, String status) {
         // Validate order exists
-        Order order = orderDao.getOrderById(orderId);
-        if (order == null) {
-            throw new ResourceNotFoundException("Order", "id", orderId);
-        }
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
         // Validate status
         String normalizedStatus = status.toLowerCase().trim();
@@ -194,22 +172,19 @@ public class OrderServiceImp implements OrderService {
         }
 
         // Update status
-        boolean updated = orderDao.updateOrderStatus(orderId, normalizedStatus);
-        if (!updated) {
-            throw new BusinessException("Failed to update order status");
-        }
+        order.setStatus(normalizedStatus);
+        orderRepository.save(order);
 
         // Return updated order
         return getOrderById(orderId);
     }
 
     @Override
+    @Transactional(readOnly = false)
     public Order cancelOrder(int orderId) {
         // Validate order exists
-        Order order = orderDao.getOrderById(orderId);
-        if (order == null) {
-            throw new ResourceNotFoundException("Order", "id", orderId);
-        }
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
         // Check if order can be cancelled
         String currentStatus = order.getStatus().toLowerCase();
@@ -222,13 +197,11 @@ public class OrderServiceImp implements OrderService {
         }
 
         // Get order items to restore inventory
-        List<OrderItem> orderItems = orderItemDao.getOrderItemsByOrderId(orderId);
+        List<OrderItem> orderItems = orderItemRepository.findByOrderId(orderId);
 
         // Update status to cancelled
-        boolean updated = orderDao.updateOrderStatus(orderId, "cancelled");
-        if (!updated) {
-            throw new BusinessException("Failed to cancel order");
-        }
+        order.setStatus("cancelled");
+        orderRepository.save(order);
 
         // Restore inventory for cancelled order items
         for (OrderItem item : orderItems) {
@@ -245,45 +218,36 @@ public class OrderServiceImp implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = false)
     public void deleteOrder(int orderId) {
         // Validate order exists
-        Order order = orderDao.getOrderById(orderId);
-        if (order == null) {
+        if (!orderRepository.existsById(orderId)) {
             throw new ResourceNotFoundException("Order", "id", orderId);
         }
 
         // Delete order items first (due to foreign key constraint)
-        List<OrderItem> items = orderItemDao.getOrderItemsByOrderId(orderId);
-        for (OrderItem item : items) {
-            orderItemDao.deleteOrderItem(item.getOrderItemId());
-        }
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        orderItemRepository.deleteAll(items);
 
         // Delete order
-        boolean deleted = orderDao.deleteOrder(orderId);
-        if (!deleted) {
-            throw new BusinessException("Failed to delete order");
-        }
+        orderRepository.deleteById(orderId);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<OrderItem> getOrderItems(int orderId) {
         // Validate order exists
-        Order order = orderDao.getOrderById(orderId);
-        if (order == null) {
+        if (!orderRepository.existsById(orderId)) {
             throw new ResourceNotFoundException("Order", "id", orderId);
         }
 
-        return orderItemDao.getOrderItemsByOrderId(orderId);
+        return orderItemRepository.findByOrderId(orderId);
     }
 
     @Override
     public Order checkoutFromCart(int userId) {
         // Validate user exists
-        User user = userDao.getUserById(userId);
-        if (user == null) {
-            throw new ResourceNotFoundException("User", "id", userId);
-        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         // Fetch cart items with product details
         List<com.smartcommerce.model.CartItem> cartItems = cartItemService.getCartItemsWithDetails(userId);
@@ -294,10 +258,8 @@ public class OrderServiceImp implements OrderService {
         // Validate stock and calculate total
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (com.smartcommerce.model.CartItem cartItem : cartItems) {
-            Product product = productDao.getProductById(cartItem.getProductId());
-            if (product == null) {
-                throw new ResourceNotFoundException("Product", "id", cartItem.getProductId());
-            }
+            Product product = productRepository.findById(cartItem.getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", cartItem.getProductId()));
 
             if (product.getQuantityAvailable() < cartItem.getQuantity()) {
                 throw new BusinessException("Insufficient stock for product: " + product.getProductName() +
@@ -314,25 +276,20 @@ public class OrderServiceImp implements OrderService {
         order.setStatus("confirmed");
         order.setTotalAmount(totalAmount);
 
-        boolean orderCreated = orderDao.addOrder(order);
-        if (!orderCreated) {
-            throw new BusinessException("Failed to create order");
-        }
+        Order savedOrder = orderRepository.save(order);
 
         // Create OrderItems and deduct inventory
         for (com.smartcommerce.model.CartItem cartItem : cartItems) {
-            Product product = productDao.getProductById(cartItem.getProductId());
+            Product product = productRepository.findById(cartItem.getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", cartItem.getProductId()));
             
             OrderItem orderItem = new OrderItem();
-            orderItem.setOrderId(order.getOrderId());
+            orderItem.setOrderId(savedOrder.getOrderId());
             orderItem.setProductId(cartItem.getProductId());
             orderItem.setQuantity(cartItem.getQuantity());
             orderItem.setUnitPrice(product.getPrice());
 
-            boolean itemCreated = orderItemDao.addOrderItem(orderItem);
-            if (!itemCreated) {
-                throw new BusinessException("Failed to add order item for product ID: " + cartItem.getProductId());
-            }
+            orderItemRepository.save(orderItem);
 
             boolean stockReduced = inventoryService.reduceStock(cartItem.getProductId(), cartItem.getQuantity());
             if (!stockReduced) {
@@ -344,8 +301,93 @@ public class OrderServiceImp implements OrderService {
         cartItemService.clearCart(userId);
 
         // Return order with items
-        order.setUserName(user.getName());
-        order.setOrderItems(orderItemDao.getOrderItemsByOrderId(order.getOrderId()));
-        return order;
+        savedOrder.setUserName(user.getName());
+        savedOrder.setOrderItems(orderItemRepository.findByOrderId(savedOrder.getOrderId()));
+        return savedOrder;
+    }
+
+    @Override
+    public Page<Order> getAllOrders(Pageable pageable) {
+        // OPTIMIZED: Fetch IDs first, then fetch entities with JOIN FETCH
+        // This avoids pagination + JOIN FETCH issues
+        Page<Order> ordersPage = orderRepository.findAll(pageable);
+        
+        // Extract order IDs from the page
+        List<Integer> orderIds = ordersPage.getContent().stream()
+                .map(Order::getOrderId)
+                .toList();
+        
+        // Fetch orders with items in single query
+        if (!orderIds.isEmpty()) {
+            List<Order> ordersWithItems = orderRepository.findByOrderIdsWithItems(orderIds);
+            // Replace page content with fully loaded orders
+            return ordersPage.map(order -> 
+                ordersWithItems.stream()
+                    .filter(o -> o.getOrderId() == order.getOrderId())
+                    .findFirst()
+                    .orElse(order)
+            );
+        }
+        return ordersPage;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Order> getOrdersByUserId(int userId, Pageable pageable) {
+        // Validate user exists
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User", "id", userId);
+        }
+
+        // OPTIMIZED: Fetch IDs first for pagination, then fetch with JOIN FETCH
+        Page<Integer> orderIdsPage = orderRepository.findOrderIdsByUserId(userId, pageable);
+        
+        // Fetch full orders with items in single query
+        if (!orderIdsPage.isEmpty()) {
+            List<Order> ordersWithItems = orderRepository.findByOrderIdsWithItems(
+                orderIdsPage.getContent()
+            );
+            return orderIdsPage.map(orderId -> 
+                ordersWithItems.stream()
+                    .filter(o -> o.getOrderId() == orderId)
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId))
+            );
+        }
+        
+        return Page.empty(pageable);
+    }
+    
+    // ============================================================
+    // OPTIMIZED REPORTING METHODS
+    // ============================================================
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<Order> getOrdersByStatus(String status) {
+        // OPTIMIZED: Uses composite index (status, order_date) and JOIN FETCH
+        // Single query to fetch orders with items
+        return orderRepository.findByStatusWithItems(status);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<Order> getUserOrdersByStatus(int userId, String status) {
+        // Validate user exists
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User", "id", userId);
+        }
+        
+        // OPTIMIZED: Uses composite index (user_id, status) and JOIN FETCH
+        // Single query to fetch user's orders by status with items
+        return orderRepository.findByUserIdAndStatusWithItems(userId, status);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<Order> getOrdersInDateRange(java.sql.Timestamp startDate, java.sql.Timestamp endDate) {
+        // OPTIMIZED: Uses index on order_date and JOIN FETCH
+        // Single query for date range reporting
+        return orderRepository.findOrdersInDateRangeWithItems(startDate, endDate);
     }
 }

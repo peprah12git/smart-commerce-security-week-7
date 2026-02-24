@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Search, Filter, X, SlidersHorizontal } from 'lucide-react';
 import ProductCard from '../../../components/ProductCard/ProductCard';
 import Loading from '../../../components/Loading/Loading';
-import Pagination from '../../../components/Pagination/Pagination';
 import ProductService from '../../../services/productService';
 import { useApp } from '../../../context/AppContext';
 import './Products.css';
@@ -12,15 +11,11 @@ const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const { categories } = useApp();
 
   // Filter states
   const [filters, setFilters] = useState({
-    page: parseInt(searchParams.get('page') || '0'),
-    size: 12,
     sortBy: searchParams.get('sortBy') || 'productId',
     sortDirection: searchParams.get('sortDirection') || 'ASC',
     category: searchParams.get('category') || '',
@@ -41,19 +36,7 @@ const Products = () => {
       };
 
       const response = await ProductService.getProducts(params);
-      
-      // Handle both GraphQL (array) and REST (paginated object) responses
-      if (Array.isArray(response)) {
-        // GraphQL response - simple array
-        setProducts(response);
-        setTotalPages(1);
-        setTotalElements(response.length);
-      } else {
-        // REST response - paginated object
-        setProducts(response.content || []);
-        setTotalPages(response.totalPages || 0);
-        setTotalElements(response.totalElements || 0);
-      }
+      setProducts(Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Failed to fetch products:', error);
     } finally {
@@ -69,7 +52,7 @@ const Products = () => {
     // Update URL with filters
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value && value !== 'productId' && value !== 'ASC' && key !== 'size') {
+      if (value && value !== 'productId' && value !== 'ASC') {
         params.set(key, value.toString());
       }
     });
@@ -77,18 +60,11 @@ const Products = () => {
   }, [filters, setSearchParams]);
 
   const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value, page: 0 }));
-  };
-
-  const handlePageChange = (page) => {
-    setFilters((prev) => ({ ...prev, page }));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const clearFilters = () => {
     setFilters({
-      page: 0,
-      size: 12,
       sortBy: 'productId',
       sortDirection: 'ASC',
       category: '',
@@ -108,7 +84,7 @@ const Products = () => {
         <div className="products-header">
           <div>
             <h1>Products</h1>
-            <p>{totalElements} products found</p>
+            <p>{products.length} products found</p>
           </div>
 
           <div className="products-actions">
@@ -230,19 +206,11 @@ const Products = () => {
             )}
           </div>
         ) : (
-          <>
-            <div className="products-grid">
-              {products.map((product) => (
-                <ProductCard key={product.productId} product={product} />
-              ))}
-            </div>
-
-            <Pagination
-              currentPage={filters.page}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-            />
-          </>
+          <div className="products-grid">
+            {products.map((product) => (
+              <ProductCard key={product.productId} product={product} />
+            ))}
+          </div>
         )}
       </div>
     </div>

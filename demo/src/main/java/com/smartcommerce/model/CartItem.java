@@ -1,93 +1,51 @@
 package com.smartcommerce.model;
 
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 
+@Entity
+@Table(name = "CartItems")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class CartItem {
-    private int productId;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "cart_item_id")
     private int cartItemId;
-    private String productName;
+
+    @Column(name = "user_id", nullable = false)
     private int userId;
+
+    @Column(name = "product_id", nullable = false)
+    private int productId;
+
+    @Transient
+    private String productName;
+
+    @Transient
     private BigDecimal productPrice;
-    private int quantity;
+
+    @Transient
     private String productDescription;
+
+    @Column(nullable = false)
+    private int quantity;
+
+    @CreationTimestamp
+    @Column(name = "added_at", updatable = false)
     private Timestamp addedAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
     private Timestamp updatedAt;
-
-    public CartItem(){;
-    }
-    // Getters and Setters
-    public int getProductId() {
-        return productId;
-    }
-
-    public int getCartItemId() {
-        return cartItemId;
-    }
-
-    public void setCartItemId(int cartItemId) {
-        this.cartItemId = cartItemId;
-    }
-
-    public int getUserId() {
-        return userId;
-    }
-
-    public void setUserId(int userId) {
-        this.userId = userId;
-    }
-
-    public void setProductId(int productId) {
-        this.productId = productId;
-    }
-
-    public int getQuantity() {
-        return quantity;
-    }
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
-    }
-
-    public Timestamp getAddedAt() {
-        return addedAt;
-    }
-
-    public void setAddedAt(Timestamp addedAt) {
-        this.addedAt = addedAt;
-    }
-
-    public Timestamp getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(Timestamp updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public String getProductName() {
-        return productName;
-    }
-
-    public void setProductName(String productName) {
-        this.productName = productName;
-    }
-
-    public BigDecimal getProductPrice() {
-        return productPrice;
-    }
-
-    public void setProductPrice(BigDecimal productPrice) {
-        this.productPrice = productPrice;
-    }
-
-    public String getProductDescription() {
-        return productDescription;
-    }
-
-    public void setProductDescription(String productDescription) {
-        this.productDescription = productDescription;
-    }
 
     public BigDecimal getSubtotal() {
         if (productPrice == null) {
@@ -95,6 +53,4 @@ public class CartItem {
         }
         return productPrice.multiply(BigDecimal.valueOf(quantity));
     }
-
 }
-// why BigDecimal: it is used instead of double or float for monetary calculations, it provides exact precision without rounding errors

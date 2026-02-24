@@ -4,7 +4,6 @@ import { Plus, Edit, Trash2, Search, Package } from 'lucide-react';
 import ProductService from '../../../services/productService';
 import Modal from '../../../components/Modal/Modal';
 import Loading from '../../../components/Loading/Loading';
-import Pagination from '../../../components/Pagination/Pagination';
 import { useApp } from '../../../context/AppContext';
 import './ProductsAdmin.css';
 
@@ -14,25 +13,20 @@ const ProductsAdmin = () => {
   const [loading, setLoading] = useState(true);
   const [deleteModal, setDeleteModal] = useState({ open: false, product: null });
   const [deleting, setDeleting] = useState(false);
-  const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const { showNotification } = useApp();
 
   useEffect(() => {
     fetchProducts();
-  }, [page, searchTerm]);
+  }, [searchTerm]);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
       const response = await ProductService.getProducts({
-        page,
-        size: 10,
         searchTerm: searchTerm || undefined,
       });
-      setProducts(response.content || []);
-      setTotalPages(response.totalPages || 0);
+      setProducts(Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Failed to fetch products:', error);
     } finally {
@@ -81,10 +75,7 @@ const ProductsAdmin = () => {
               type="text"
               placeholder="Search products..."
               value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(0);
-              }}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </div>
@@ -161,12 +152,6 @@ const ProductsAdmin = () => {
                   ))}
                 </tbody>
               </table>
-
-              <Pagination
-                currentPage={page}
-                totalPages={totalPages}
-                onPageChange={setPage}
-              />
             </>
           )}
         </div>

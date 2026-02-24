@@ -7,14 +7,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.smartcommerce.dao.interfaces.CartItemDaoInterface;
-import com.smartcommerce.dao.interfaces.ProductDaoInterface;
-import com.smartcommerce.dao.interfaces.UserDaoInterface;
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.CartItem;
 import com.smartcommerce.model.Product;
 import com.smartcommerce.model.User;
+import com.smartcommerce.repositories.CartItemRepository;
+import com.smartcommerce.repositories.ProductRepository;
+import com.smartcommerce.repositories.UserRepository;
 import com.smartcommerce.service.serviceInterface.CartItemService;
 
 /**
@@ -25,17 +25,17 @@ import com.smartcommerce.service.serviceInterface.CartItemService;
 @Transactional
 public class CartItemServiceImp implements CartItemService {
 
-    private final CartItemDaoInterface cartItemDao;
-    private final UserDaoInterface userDao;
-    private final ProductDaoInterface productDao;
+    private final CartItemRepository cartItemRepository;
+    private final UserRepository userRepository;
+    private final ProductRepository productRepository;
 
     @Autowired
-    public CartItemServiceImp(CartItemDaoInterface cartItemDao,
-                               UserDaoInterface userDao,
-                               ProductDaoInterface productDao) {
-        this.cartItemDao = cartItemDao;
-        this.userDao = userDao;
-        this.productDao = productDao;
+    public CartItemServiceImp(CartItemRepository cartItemRepository,
+                               UserRepository userRepository,
+                               ProductRepository productRepository) {
+        this.cartItemRepository = cartItemRepository;
+        this.userRepository = userRepository;
+        this.productRepository = productRepository;
     }
 
     /**
@@ -44,16 +44,12 @@ public class CartItemServiceImp implements CartItemService {
     @Override
     public CartItem addToCart(int userId, int productId, int quantity) {
         // Validate user exists
-        User user = userDao.getUserById(userId);
-        if (user == null) {
-            throw new ResourceNotFoundException("User", "id", userId);
-        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         // Validate product exists
-        Product product = productDao.getProductById(productId);
-        if (product == null) {
-            throw new ResourceNotFoundException("Product", "id", productId);
-        }
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
         // Validate quantity
         if (quantity <= 0) {
@@ -61,7 +57,7 @@ public class CartItemServiceImp implements CartItemService {
         }
 
         // Check stock availability
-        CartItem existingItem = cartItemDao.getCartItem(userId, productId);
+        CartItem existingItem = cartItemRepository.findByUserIdAndProductId(userId, productId).orElse(null);
         int totalQuantity = quantity + (existingItem != null ? existingItem.getQuantity() : 0);
         
         if (product.getQuantityAvailable() < totalQuantity) {
@@ -69,19 +65,17 @@ public class CartItemServiceImp implements CartItemService {
                     ". Available: " + product.getQuantityAvailable() + ", Requested: " + totalQuantity);
         }
 
-        // Create cart item and add to cart
-        CartItem cartItem = new CartItem();
-        cartItem.setUserId(userId);
-        cartItem.setProductId(productId);
-        cartItem.setQuantity(quantity);
-
-        boolean success = cartItemDao.addToCart(cartItem);
-        if (!success) {
-            throw new BusinessException("Failed to add item to cart");
+        // Create or update cart item
+        if (existingItem != null) {
+            existingItem.setQuantity(totalQuantity);
+            return cartItemRepository.save(existingItem);
+        } else {
+            CartItem cartItem = new CartItem();
+            cartItem.setUserId(userId);
+            cartItem.setProductId(productId);
+            cartItem.setQuantity(quantity);
+            return cartItemRepository.save(cartItem);
         }
-
-        // Return the updated cart item with details
-        return cartItemDao.getCartItem(userId, productId);
     }
 
     /**
@@ -91,12 +85,11 @@ public class CartItemServiceImp implements CartItemService {
     @Transactional(readOnly = true)
     public List<CartItem> getCartItemsByUserId(int userId) {
         // Validate user exists
-        User user = userDao.getUserById(userId);
-        if (user == null) {
+        if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
 
-        return cartItemDao.getCartItemsByUserId(userId);
+        return cartItemRepository.findByUserId(userId);
     }
 
     /**
@@ -106,12 +99,11 @@ public class CartItemServiceImp implements CartItemService {
     @Transactional(readOnly = true)
     public List<CartItem> getCartItemsWithDetails(int userId) {
         // Validate user exists
-        User user = userDao.getUserById(userId);
-        if (user == null) {
+        if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
 
-        return cartItemDao.getCartItemsWithDetails(userId);
+        return cartItemRepository.findByUserId(userId);
     }
 
     /**
@@ -120,11 +112,8 @@ public class CartItemServiceImp implements CartItemService {
     @Override
     @Transactional(readOnly = true)
     public CartItem getCartItem(int userId, int productId) {
-        CartItem cartItem = cartItemDao.getCartItem(userId, productId);
-        if (cartItem == null) {
-            throw new ResourceNotFoundException("CartItem", "userId=" + userId + ", productId", productId);
-        }
-        return cartItem;
+        return cartItemRepository.findByUserIdAndProductId(userId, productId)
+                .orElseThrow(() -> new ResourceNotFoundException("CartItem", "userId=" + userId + ", productId", productId));
     }
 
     /**
@@ -133,10 +122,8 @@ public class CartItemServiceImp implements CartItemService {
     @Override
     public CartItem updateQuantity(int userId, int productId, int quantity) {
         // Validate cart item exists
-        CartItem cartItem = cartItemDao.getCartItem(userId, productId);
-        if (cartItem == null) {
-            throw new ResourceNotFoundException("CartItem", "userId=" + userId + ", productId", productId);
-        }
+        CartItem cartItem = cartItemRepository.findByUserIdAndProductId(userId, productId)
+                .orElseThrow(() -> new ResourceNotFoundException("CartItem", "userId=" + userId + ", productId", productId));
 
         // Validate quantity
         if (quantity <= 0) {
@@ -144,10 +131,8 @@ public class CartItemServiceImp implements CartItemService {
         }
 
         // Check stock availability
-        Product product = productDao.getProductById(productId);
-        if (product == null) {
-            throw new ResourceNotFoundException("Product", "id", productId);
-        }
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
         if (product.getQuantityAvailable() < quantity) {
             throw new BusinessException("Insufficient stock for product: " + product.getProductName() +
@@ -155,13 +140,8 @@ public class CartItemServiceImp implements CartItemService {
         }
 
         // Update quantity
-        boolean success = cartItemDao.updateQuantity(userId, productId, quantity);
-        if (!success) {
-            throw new BusinessException("Failed to update cart item quantity");
-        }
-
-        // Return updated cart item
-        return cartItemDao.getCartItem(userId, productId);
+        cartItem.setQuantity(quantity);
+        return cartItemRepository.save(cartItem);
     }
 
     /**
@@ -170,15 +150,11 @@ public class CartItemServiceImp implements CartItemService {
     @Override
     public void removeFromCart(int userId, int productId) {
         // Validate cart item exists
-        CartItem cartItem = cartItemDao.getCartItem(userId, productId);
-        if (cartItem == null) {
+        if (!cartItemRepository.findByUserIdAndProductId(userId, productId).isPresent()) {
             throw new ResourceNotFoundException("CartItem", "userId=" + userId + ", productId", productId);
         }
 
-        boolean success = cartItemDao.removeFromCart(userId, productId);
-        if (!success) {
-            throw new BusinessException("Failed to remove item from cart");
-        }
+        cartItemRepository.deleteByUserIdAndProductId(userId, productId);
     }
 
     /**
@@ -187,13 +163,11 @@ public class CartItemServiceImp implements CartItemService {
     @Override
     public void clearCart(int userId) {
         // Validate user exists
-        User user = userDao.getUserById(userId);
-        if (user == null) {
+        if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
 
-        // Clear the cart (will return false if cart is already empty, which is okay)
-        cartItemDao.clearCart(userId);
+        cartItemRepository.deleteByUserId(userId);
     }
 
     /**
@@ -203,12 +177,11 @@ public class CartItemServiceImp implements CartItemService {
     @Transactional(readOnly = true)
     public int getCartItemCount(int userId) {
         // Validate user exists
-        User user = userDao.getUserById(userId);
-        if (user == null) {
+        if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
 
-        return cartItemDao.getCartItemCount(userId);
+        return cartItemRepository.countByUserId(userId);
     }
 
     /**
@@ -218,11 +191,11 @@ public class CartItemServiceImp implements CartItemService {
     @Transactional(readOnly = true)
     public BigDecimal getCartTotal(int userId) {
         // Validate user exists
-        User user = userDao.getUserById(userId);
-        if (user == null) {
+        if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
 
-        return cartItemDao.getCartTotal(userId);
+        BigDecimal total = cartItemRepository.calculateCartTotal(userId);
+        return total != null ? total : BigDecimal.ZERO;
     }
 }

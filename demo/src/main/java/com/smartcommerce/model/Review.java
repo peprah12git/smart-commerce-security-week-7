@@ -1,90 +1,51 @@
 package com.smartcommerce.model;
 
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.sql.Timestamp;
 
+@Entity
+@Table(name = "Reviews")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Review {
-
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "review_id")
     private int reviewId;
-    private int userId;
-    private int productId;
-    private String userName;
-    private String productName;
-    private Integer rating;
-    private String comment;
-    private Timestamp reviewDate;
 
-    public Review() {
-    }
+    @Column(name = "user_id", nullable = false)
+    private int userId;
+
+    @Column(name = "product_id", nullable = false)
+    private int productId;
+
+    @Transient
+    private String userName;
+
+    @Transient
+    private String productName;
+
+    @Column(nullable = false)
+    private Integer rating;
+
+    @Column(columnDefinition = "TEXT")
+    private String comment;
+
+    @CreationTimestamp
+    @Column(name = "review_date", updatable = false)
+    private Timestamp reviewDate;
 
     public Review(int userId, int productId, Integer rating, String comment) {
         this.userId = userId;
         this.productId = productId;
         this.rating = rating;
         this.comment = comment;
-    }
-
-    public int getReviewId() {
-        return reviewId;
-    }
-
-    public void setReviewId(int reviewId) {
-        this.reviewId = reviewId;
-    }
-
-    public int getUserId() {
-        return userId;
-    }
-
-    public void setUserId(int userId) {
-        this.userId = userId;
-    }
-
-    public int getProductId() {
-        return productId;
-    }
-
-    public void setProductId(int productId) {
-        this.productId = productId;
-    }
-
-    public String getUserName() {
-        return userName;
-    }
-
-    public void setUserName(String userName) {
-        this.userName = userName;
-    }
-
-    public String getProductName() {
-        return productName;
-    }
-
-    public void setProductName(String productName) {
-        this.productName = productName;
-    }
-
-    public Integer getRating() {
-        return rating;
-    }
-
-    public void setRating(Integer rating) {
-        this.rating = rating;
-    }
-
-    public String getComment() {
-        return comment;
-    }
-
-    public void setComment(String comment) {
-        this.comment = comment;
-    }
-
-    public Timestamp getReviewDate() {
-        return reviewDate;
-    }
-
-    public void setReviewDate(Timestamp reviewDate) {
-        this.reviewDate = reviewDate;
     }
 
     @Override
