@@ -1,64 +1,44 @@
 package com.smartcommerce.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "OrderItems")
-@Data
+@Table(name = "OrderItems", indexes = {
+        @Index(name = "idx_order_items_order", columnList = "order_id"),
+        @Index(name = "idx_order_items_product", columnList = "product_id")
+})
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderItem {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "order_item_id")
     private int orderItemId;
 
-    @Column(name = "order_id", nullable = false)
-    private int orderId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private Order order;
 
-    @Column(name = "product_id", nullable = false)
-    private int productId;
-
-    @Transient
-    private String productName;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private Product product;
 
     @Column(nullable = false)
     private int quantity;
 
-    @Column(name = "unit_price", nullable = false)
+    @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal unitPrice;
 
-    @Column(nullable = false)
-    private BigDecimal subtotal;
-
-    public OrderItem(int orderId, int productId, int quantity, BigDecimal unitPrice) {
-        this.orderId = orderId;
-        this.productId = productId;
-        this.quantity = quantity;
-        this.unitPrice = unitPrice;
-        this.subtotal = unitPrice.multiply(new BigDecimal(quantity));
-    }
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
-        if (this.unitPrice != null) {
-            this.subtotal = this.unitPrice.multiply(new BigDecimal(quantity));
+    public BigDecimal getSubtotal() {
+        if (unitPrice == null) {
+            return BigDecimal.ZERO;
         }
-    }
-
-    public void setUnitPrice(BigDecimal unitPrice) {
-        this.unitPrice = unitPrice;
-        this.subtotal = unitPrice.multiply(new BigDecimal(this.quantity));
-    }
-
-    @Override
-    public String toString() {
-        return "OrderItem{id=" + orderItemId + ", orderId=" + orderId + ", productId=" + productId + ", qty=" + quantity + "}";
+        return unitPrice.multiply(BigDecimal.valueOf(quantity));
     }
 }
-

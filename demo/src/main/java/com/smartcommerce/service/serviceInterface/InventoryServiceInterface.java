@@ -43,12 +43,6 @@ public interface InventoryServiceInterface {
      */
     Page<Inventory> getAllInventory(Pageable pageable);
 
-    /**
-     * Retrieves all inventory records
-     *
-     * @return list of all inventory items
-     */
-    List<Inventory> getAllInventory();
 
     /**
      * Retrieves inventory items below a stock threshold (paginated)

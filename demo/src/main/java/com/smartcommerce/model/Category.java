@@ -3,6 +3,7 @@ package com.smartcommerce.model;
 import java.sql.Timestamp;
 import java.util.List;
 
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -15,13 +16,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "Categories")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Category {
@@ -30,9 +29,10 @@ public class Category {
     @Column(name = "category_id")
     private int categoryId;
 
-    @Column(name = "category_name", nullable = false, unique = true)
+    @Column(name = "category_name", nullable = false, unique = true, length = 100)
     private String categoryName;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     @CreationTimestamp
@@ -46,15 +46,6 @@ public class Category {
     public Category(String categoryName, String description) {
         this.categoryName = categoryName;
         this.description = description;
-    }
-
-    public String getName() {
-        return categoryName;
-    }
-
-    @Override
-    public String toString() {
-        return categoryName;
     }
 }
 

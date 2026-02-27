@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
  * Acceptance Criteria: Cache configuration enabled using @EnableCaching
  */
 @Configuration
+
 public class CacheConfig {
     
     // Cache names as constants for type safety
@@ -22,6 +23,7 @@ public class CacheConfig {
     public static final String USERS_CACHE = "users";
     public static final String USER_CACHE = "user";
     public static final String USER_EMAIL_CACHE = "userByEmail";
+    public static final String INVENTORY_CACHE = "inventory";
     
     /**
      * Configures cache manager with named caches
@@ -38,6 +40,7 @@ public class CacheConfig {
         caches.add(new ConcurrentMapCache(USERS_CACHE));
         caches.add(new ConcurrentMapCache(USER_CACHE));
         caches.add(new ConcurrentMapCache(USER_EMAIL_CACHE));
+        caches.add(new ConcurrentMapCache(INVENTORY_CACHE));
         cacheManager.setCaches(caches);
         return cacheManager;
     }

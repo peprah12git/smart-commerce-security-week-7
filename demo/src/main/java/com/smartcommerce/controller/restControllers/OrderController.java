@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.smartcommerce.model.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -72,37 +73,13 @@ public class OrderController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping
-    public ResponseEntity<OrderResponse> createOrder(
+    public ResponseEntity<OrderResponse>  createOrder(
             @Valid @RequestBody CreateOrderDTO createOrderDTO,
             @RequestAttribute("userId") Integer userId) {
 
-        // Create Order object
-        Order order = new Order();
-        order.setUserId(userId);
-        order.setStatus("pending");
-
-        // Convert OrderItemDTOs to OrderItem entities
-        List<OrderItem> orderItems = new ArrayList<>();
-        BigDecimal totalAmount = BigDecimal.ZERO;
-
-        for (OrderItemDTO itemDTO : createOrderDTO.items()) {
-            OrderItem item = new OrderItem();
-            item.setProductId(itemDTO.productId());
-            item.setQuantity(itemDTO.quantity());
-            if (itemDTO.unitPrice() != null) {
-                item.setUnitPrice(itemDTO.unitPrice());
-            }
-            orderItems.add(item);
-        }
-
-        order.setTotalAmount(totalAmount);
-
-        Order createdOrder = orderService.createOrder(order, orderItems);
+        Order createdOrder = orderService.createOrder(userId, createOrderDTO);
         OrderResponse response = OrderMapper.toOrderResponse(createdOrder);
-
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**

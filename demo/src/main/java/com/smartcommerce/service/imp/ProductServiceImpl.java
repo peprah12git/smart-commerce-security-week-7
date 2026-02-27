@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
@@ -30,17 +31,11 @@ import com.smartcommerce.service.serviceInterface.ProductService;
  */
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
-
-    // Manual constructor for dependency injection
-    public ProductServiceImpl(ProductRepository productRepository,
-                              CategoryRepository categoryRepository) {
-        this.productRepository = productRepository;
-        this.categoryRepository = categoryRepository;
-    }
 
     @Override
     @Caching(evict = {
@@ -61,7 +56,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "products", key = "'all'")
+    @Cacheable(value = "products")
     public List<Product> getAllProducts() {
         return productRepository.findAll();
     }
@@ -169,7 +164,7 @@ public class ProductServiceImpl implements ProductService {
 
         // Map user-friendly field names to entity field names
         String entityField = switch (sortBy.toLowerCase()) {
-            case "productname", "name" -> "name";
+            case "name" -> "name";
             case "price" -> "price";
             case "createdat" -> "createdAt";
             case "productid", "id" -> "productId";

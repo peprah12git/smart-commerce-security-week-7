@@ -1,16 +1,18 @@
 package com.smartcommerce.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.sql.Timestamp;
 
 @Entity
-@Table(name = "Inventory")
-@Data
+@Table(name = "Inventory", indexes = {
+        @Index(name = "idx_inventory_product", columnList = "product_id"),
+        @Index(name = "idx_inventory_quantity", columnList = "quantity_available")
+})
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Inventory {
@@ -19,8 +21,9 @@ public class Inventory {
     @Column(name = "inventory_id")
     private int inventoryId;
 
-    @Column(name = "product_id", nullable = false)
-    private int productId;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", unique = true)
+    private Product product;
 
     @Transient
     private String productName;
@@ -28,17 +31,8 @@ public class Inventory {
     @Column(name = "quantity_available", nullable = false)
     private int quantityAvailable;
 
-    @UpdateTimestamp
     @Column(name = "last_updated")
     private Timestamp lastUpdated;
 
-    public Inventory(int inventoryId, int productId, int quantityAvailable) {
-        this.inventoryId = inventoryId;
-        this.productId = productId;
-        this.quantityAvailable = quantityAvailable;
-    }
 
-    public boolean isLowStock(int threshold) {
-        return quantityAvailable < threshold;
-    }
 }

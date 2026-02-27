@@ -11,16 +11,13 @@ import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.CartItem;
 import com.smartcommerce.model.Product;
+import com.smartcommerce.model.User;
 import com.smartcommerce.repositories.CartItemRepository;
 import com.smartcommerce.repositories.ProductRepository;
 import com.smartcommerce.repositories.UserRepository;
 import com.smartcommerce.service.serviceInterface.CartItemService;
 import com.smartcommerce.service.serviceInterface.InventoryServiceInterface;
 
-/**
- * Service layer for CartItem entity
- * Handles business logic, validation, and orchestration of cart operations
- */
 @Service
 @Transactional
 public class CartItemServiceImp implements CartItemService {
@@ -32,107 +29,81 @@ public class CartItemServiceImp implements CartItemService {
 
     @Autowired
     public CartItemServiceImp(CartItemRepository cartItemRepository,
-                               UserRepository userRepository,
-                               ProductRepository productRepository,
-                               InventoryServiceInterface inventoryService) {
+                              UserRepository userRepository,
+                              ProductRepository productRepository,
+                              InventoryServiceInterface inventoryService) {
         this.cartItemRepository = cartItemRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
         this.inventoryService = inventoryService;
     }
 
-    /**
-     * Adds an item to the user's cart or updates quantity if already exists
-     */
     @Override
     public CartItem addToCart(int userId, int productId, int quantity) {
-        // Validate user exists
-        userRepository.findById(userId)
+        User existingUser = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        // Validate product exists
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
-        // Validate quantity
         if (quantity <= 0) {
             throw new BusinessException("Quantity must be greater than zero");
         }
 
-        // Check stock availability using Inventory service
-        CartItem existingItem = cartItemRepository.findByUserIdAndProductId(userId, productId).orElse(null);
+        CartItem existingItem = cartItemRepository.findByUser_UserIdAndProduct_ProductId(userId, productId).orElse(null);
         int totalQuantity = quantity + (existingItem != null ? existingItem.getQuantity() : 0);
-        
+
         if (!inventoryService.hasEnoughStock(productId, totalQuantity)) {
             throw new BusinessException("Insufficient stock for product: " + product.getName());
         }
 
-        // Create or update cart item
         if (existingItem != null) {
             existingItem.setQuantity(totalQuantity);
             return cartItemRepository.save(existingItem);
         } else {
             CartItem cartItem = new CartItem();
-            cartItem.setUserId(userId);
-            cartItem.setProductId(productId);
+            cartItem.setUser(existingUser);
+            cartItem.setProduct(product);
             cartItem.setQuantity(quantity);
             return cartItemRepository.save(cartItem);
         }
     }
 
-    /**
-     * Retrieves all cart items for a user (basic info)
-     */
     @Override
     @Transactional(readOnly = true)
     public List<CartItem> getCartItemsByUserId(int userId) {
-        // Validate user exists
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
-
-        return cartItemRepository.findByUserId(userId);
+        return cartItemRepository.findByUser_UserId(userId);
     }
 
-    /**
-     * Retrieves all cart items for a user with product details
-     */
     @Override
     @Transactional(readOnly = true)
     public List<CartItem> getCartItemsWithDetails(int userId) {
-        // Validate user exists
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
-
-        return cartItemRepository.findByUserId(userId);
+        // FIXED: findByUser_UserId
+        return cartItemRepository.findByUser_UserId(userId);
     }
 
-    /**
-     * Gets a specific cart item
-     */
     @Override
     @Transactional(readOnly = true)
     public CartItem getCartItem(int userId, int productId) {
-        return cartItemRepository.findByUserIdAndProductId(userId, productId)
+        return cartItemRepository.findByUser_UserIdAndProduct_ProductId(userId, productId)
                 .orElseThrow(() -> new ResourceNotFoundException("CartItem", "userId=" + userId + ", productId", productId));
     }
 
-    /**
-     * Updates the quantity of a cart item
-     */
     @Override
     public CartItem updateQuantity(int userId, int productId, int quantity) {
-        // Validate cart item exists
-        CartItem cartItem = cartItemRepository.findByUserIdAndProductId(userId, productId)
+        CartItem cartItem = cartItemRepository.findByUser_UserIdAndProduct_ProductId(userId, productId)
                 .orElseThrow(() -> new ResourceNotFoundException("CartItem", "userId=" + userId + ", productId", productId));
 
-        // Validate quantity
         if (quantity <= 0) {
             throw new BusinessException("Quantity must be greater than zero. Use removeFromCart to delete items.");
         }
 
-        // Check stock availability using Inventory service
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
@@ -140,62 +111,41 @@ public class CartItemServiceImp implements CartItemService {
             throw new BusinessException("Insufficient stock for product: " + product.getName());
         }
 
-        // Update quantity
         cartItem.setQuantity(quantity);
         return cartItemRepository.save(cartItem);
     }
 
-    /**
-     * Removes a specific item from the cart
-     */
     @Override
     public void removeFromCart(int userId, int productId) {
-        // Validate cart item exists
-        if (!cartItemRepository.findByUserIdAndProductId(userId, productId).isPresent()) {
+        if (!cartItemRepository.findByUser_UserIdAndProduct_ProductId(userId, productId).isPresent()) {
             throw new ResourceNotFoundException("CartItem", "userId=" + userId + ", productId", productId);
         }
-
-        cartItemRepository.deleteByUserIdAndProductId(userId, productId);
+        cartItemRepository.deleteByUser_UserIdAndProduct_ProductId(userId, productId);
     }
 
-    /**
-     * Clears all items from a user's cart
-     */
     @Override
     public void clearCart(int userId) {
-        // Validate user exists
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
-
-        cartItemRepository.deleteByUserId(userId);
+        cartItemRepository.deleteByUser_UserId(userId);
     }
 
-    /**
-     * Gets the count of items in a user's cart
-     */
     @Override
     @Transactional(readOnly = true)
     public int getCartItemCount(int userId) {
-        // Validate user exists
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
-
         return cartItemRepository.countByUserId(userId);
     }
 
-    /**
-     * Calculates the total value of a user's cart
-     */
     @Override
     @Transactional(readOnly = true)
     public BigDecimal getCartTotal(int userId) {
-        // Validate user exists
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User", "id", userId);
         }
-
         BigDecimal total = cartItemRepository.calculateCartTotal(userId);
         return total != null ? total : BigDecimal.ZERO;
     }

@@ -22,13 +22,13 @@ public class CartItemMapper {
 
         CartItemResponse response = new CartItemResponse();
         response.setCartItemId(item.getCartItemId());
-        response.setUserId(item.getUserId());
+        response.setUserId(item.getUser().getUserId());
         response.setProductId(item.getProductId());
-        response.setProductName(item.getProductName());
-        response.setProductPrice(item.getProductPrice());
-        response.setProductDescription(item.getProductDescription());
+        response.setProductName(item.getProduct() != null ? item.getProduct().getName() : null);
+        response.setProductPrice(item.getProduct() != null ? item.getProduct().getPrice() : null);
+        response.setProductDescription(item.getProduct() != null ? item.getProduct().getDescription() : null);
         response.setQuantity(item.getQuantity());
-        response.setSubtotal(item.getSubtotal());
+        response.setSubtotal(item.getProduct().getPrice());
         response.setAddedAt(item.getAddedAt());
         response.setUpdatedAt(item.getUpdatedAt());
 
