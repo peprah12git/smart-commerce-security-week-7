@@ -2,7 +2,6 @@ package com.smartcommerce.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.sql.Timestamp;
 
@@ -33,6 +32,5 @@ public class Inventory {
 
     @Column(name = "last_updated")
     private Timestamp lastUpdated;
-
 
 }

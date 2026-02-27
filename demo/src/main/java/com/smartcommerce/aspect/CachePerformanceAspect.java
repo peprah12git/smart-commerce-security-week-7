@@ -9,8 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 
 import java.lang.reflect.Method;
@@ -40,9 +38,6 @@ public class CachePerformanceAspect {
      * hitting the database).
      */
     private static final long CACHE_HIT_THRESHOLD_MS = 5;
-
-    @Autowired
-    private CacheManager cacheManager;
 
     /**
      * Monitor @Cacheable method executions.
