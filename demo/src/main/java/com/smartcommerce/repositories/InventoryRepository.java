@@ -16,22 +16,19 @@ import com.smartcommerce.model.Inventory;
 
 @Repository
 public interface InventoryRepository extends JpaRepository<Inventory, Integer> {
-    Optional<Inventory> findByProductId(int productId);
-    
-    // Paginated methods
-    Page<Inventory> findAllByOrderByQuantityAvailableAsc(Pageable pageable);
-    
+
+    Optional<Inventory> findByProductProductId(int productId);
+
+    List<Inventory> findByQuantityAvailable(int quantity);
+
     @Query("SELECT i FROM Inventory i WHERE i.quantityAvailable < :threshold")
     Page<Inventory> findLowStockItems(@Param("threshold") int threshold, Pageable pageable);
-    
-    // Non-paginated methods (kept for backward compatibility)
-    List<Inventory> findAllByOrderByQuantityAvailableAsc();
-    
+
     @Query("SELECT i FROM Inventory i WHERE i.quantityAvailable < :threshold ORDER BY i.quantityAvailable ASC")
     List<Inventory> findLowStockItems(@Param("threshold") int threshold);
-    
+
     @Modifying
     @Transactional
-    @Query("UPDATE Inventory i SET i.quantityAvailable = :quantity WHERE i.productId = :productId")
+    @Query("UPDATE Inventory i SET i.quantityAvailable = :quantity WHERE i.product.productId = :productId")
     int updateInventoryQuantity(@Param("productId") int productId, @Param("quantity") int quantity);
 }

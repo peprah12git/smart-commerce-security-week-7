@@ -15,26 +15,27 @@ import com.smartcommerce.model.CartItem;
 
 @Repository
 public interface CartItemRepository extends JpaRepository<CartItem, Integer> {
-    List<CartItem> findByUserId(int userId);
-    
-    Optional<CartItem> findByUserIdAndProductId(int userId, int productId);
-    
+
+    List<CartItem> findByUser_UserId(int userId);
+
+    Optional<CartItem> findByUser_UserIdAndProduct_ProductId(int userId, int productId);
+
     @Modifying
     @Transactional
-    void deleteByUserId(int userId);
-    
+    void deleteByUser_UserId(int userId);
+
     @Modifying
     @Transactional
-    void deleteByUserIdAndProductId(int userId, int productId);
-    
+    void deleteByUser_UserIdAndProduct_ProductId(int userId, int productId);
+
     @Modifying
     @Transactional
-    @Query("UPDATE CartItem c SET c.quantity = :quantity WHERE c.userId = :userId AND c.productId = :productId")
+    @Query("UPDATE CartItem c SET c.quantity = :quantity WHERE c.user.userId = :userId AND c.product.productId = :productId")
     int updateQuantity(@Param("userId") int userId, @Param("productId") int productId, @Param("quantity") int quantity);
-    
-    @Query("SELECT COUNT(c) FROM CartItem c WHERE c.userId = :userId")
+
+    @Query("SELECT COUNT(c) FROM CartItem c WHERE c.user.userId = :userId")
     int countByUserId(@Param("userId") int userId);
-    
-    @Query("SELECT COALESCE(SUM(c.quantity * p.price), 0) FROM CartItem c, Product p WHERE c.productId = p.productId AND c.userId = :userId")
+
+    @Query("SELECT COALESCE(SUM(c.quantity * c.product.price), 0) FROM CartItem c WHERE c.user.userId = :userId")
     BigDecimal calculateCartTotal(@Param("userId") int userId);
 }

@@ -52,21 +52,6 @@ public class InventoryController {
     }
 
     /**
-     * Get all inventory items
-     * GET /api/inventory
-     */
-    @Operation(summary = "Get all inventory", description = "Retrieves all inventory items")
-    @ApiResponse(responseCode = "200", description = "Inventory items retrieved successfully")
-    @GetMapping
-    public ResponseEntity<List<InventoryResponse>> getAllInventory() {
-        List<Inventory> inventories = inventoryService.getAllInventory();
-        List<InventoryResponse> responses = inventories.stream()
-                .map(this::toInventoryResponse)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(responses);
-    }
-
-    /**
      * Get all inventory items with pagination
      * GET /api/inventory/paged?page=0&size=10&sort=quantityAvailable,asc
      */
@@ -237,7 +222,7 @@ public class InventoryController {
     private InventoryResponse toInventoryResponse(Inventory inventory) {
         return new InventoryResponse(
                 inventory.getInventoryId(),
-                inventory.getProductId(),
+                inventory.getProduct().getProductId(),
                 inventory.getProductName(),
                 inventory.getQuantityAvailable(),
                 inventory.getLastUpdated()

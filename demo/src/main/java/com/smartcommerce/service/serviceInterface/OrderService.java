@@ -1,7 +1,10 @@
 package com.smartcommerce.service.serviceInterface;
 
+import java.sql.Timestamp;
 import java.util.List;
 
+import com.smartcommerce.dtos.request.CreateOrderDTO;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -19,13 +22,14 @@ public interface OrderService {
     /**
      * Creates a new order with order items
      *
-     * @param order Order object to create
-     * @param orderItems List of order items
+     * @param userId Order object to create
+     * @param createOrderDTO List of order items
      * @return Created order with generated ID
      * @throws ResourceNotFoundException if user or product not found
      * @throws BusinessException if order creation fails
      */
-    Order createOrder(Order order, List<OrderItem> orderItems);
+    Order createOrder(int userId, CreateOrderDTO createOrderDTO);
+
 
     /**
      * Retrieves all orders (paginated)
@@ -152,5 +156,5 @@ public interface OrderService {
      * @param endDate End date
      * @return List of orders with items in date range
      */
-    List<Order> getOrdersInDateRange(java.sql.Timestamp startDate, java.sql.Timestamp endDate);
+    List<Order> getOrdersInDateRange(Timestamp startDate, Timestamp endDate);
 }

@@ -19,8 +19,9 @@ public class Inventory {
     @Column(name = "inventory_id")
     private int inventoryId;
 
-    @Column(name = "product_id", nullable = false)
-    private int productId;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", unique = true)
+    private Product product;
 
     @Transient
     private String productName;
@@ -28,17 +29,8 @@ public class Inventory {
     @Column(name = "quantity_available", nullable = false)
     private int quantityAvailable;
 
-    @UpdateTimestamp
     @Column(name = "last_updated")
     private Timestamp lastUpdated;
 
-    public Inventory(int inventoryId, int productId, int quantityAvailable) {
-        this.inventoryId = inventoryId;
-        this.productId = productId;
-        this.quantityAvailable = quantityAvailable;
-    }
 
-    public boolean isLowStock(int threshold) {
-        return quantityAvailable < threshold;
-    }
 }

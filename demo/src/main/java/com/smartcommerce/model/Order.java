@@ -12,7 +12,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "Orders")
+@Table(name = "Orders", indexes = {
+        @Index(name = "idx_orders_user", columnList = "user_id"),
+        @Index(name = "idx_orders_date", columnList = "order_date")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,11 +25,9 @@ public class Order {
     @Column(name = "order_id")
     private int orderId;
 
-    @Column(name = "user_id", nullable = false)
-    private int userId;
-
-    @Transient
-    private String userName;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @CreationTimestamp
     @Column(name = "order_date", updatable = false)
@@ -38,18 +39,6 @@ public class Order {
     @Column(name = "total_amount", nullable = false)
     private BigDecimal totalAmount;
 
-    @OneToMany(mappedBy = "orderId", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<OrderItem> orderItems = new ArrayList<>();
-
-    public Order(int userId, String status, BigDecimal totalAmount) {
-        this.userId = userId;
-        this.status = status;
-        this.totalAmount = totalAmount;
-        this.orderItems = new ArrayList<>();
-    }
-
-    @Override
-    public String toString() {
-        return "Order{id=" + orderId + ", userId=" + userId + ", total=" + totalAmount + ", status='" + status + "'}";
-    }
 }

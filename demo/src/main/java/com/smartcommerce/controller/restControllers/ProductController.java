@@ -79,16 +79,12 @@ public class ProductController {
     @RequiredRole("ADMIN") // Only admins can create products
     public ResponseEntity<ProductResponse> createProduct(
             @Valid @RequestBody CreateProductDTO createProductDTO) {
-// ---creating a new product entity from the incoming DTO
         Product product = new Product();
         product.setName(createProductDTO.productName());
         product.setDescription(createProductDTO.description());
         product.setPrice(createProductDTO.price());
-        
-//----- Map the saved Product entity to a response DTO This ensures we only send the necessary fields back to the client
         Product createdProduct = productService.createProduct(product, createProductDTO.categoryId());
         ProductResponse response = ProductMapper.toProductResponse(createdProduct);
-//-----return HTTP with product data
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
@@ -111,12 +107,12 @@ public class ProductController {
      * Get products with pagination, sorting and filtering
      * GET /api/products/paged?page=0&size=10&sort=productName,asc&category=Electronics&minPrice=100&maxPrice=1000&searchTerm=phone&inStock=true
      *
-     * @param pageable      Pagination parameters (page, size, sort) - defaults to page 0, size 10
-     * @param category      Filter by category name
-     * @param minPrice      Filter by minimum price
-     * @param maxPrice      Filter by maximum price
-     * @param searchTerm    Search in product name and description
-     * @param inStock       Filter by stock status (true=in stock, false=out of stock)
+     * @param pageable
+     * @param category
+     * @param minPrice
+     * @param maxPrice
+     * @param searchTerm
+     * @param inStock       F
      */
     @Operation(summary = "Get products with pagination and filtering",
             description = "Retrieves products with support for pagination, sorting, and multiple filter criteria. Default page size is 10.")

@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
  * Acceptance Criteria: Cache configuration enabled using @EnableCaching
  */
 @Configuration
+
 public class CacheConfig {
     
     // Cache names as constants for type safety

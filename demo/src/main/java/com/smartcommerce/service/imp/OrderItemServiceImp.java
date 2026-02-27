@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
+import com.smartcommerce.model.Order;
 import com.smartcommerce.model.OrderItem;
 import com.smartcommerce.model.Product;
 import com.smartcommerce.repositories.OrderItemRepository;
@@ -16,10 +17,6 @@ import com.smartcommerce.repositories.OrderRepository;
 import com.smartcommerce.repositories.ProductRepository;
 import com.smartcommerce.service.serviceInterface.OrderItemService;
 
-/**
- * Service layer for OrderItem entity
- * Handles business logic, validation, and orchestration of order item operations
- */
 @Service
 @Transactional
 public class OrderItemServiceImp implements OrderItemService {
@@ -39,40 +36,45 @@ public class OrderItemServiceImp implements OrderItemService {
 
     @Override
     public OrderItem addOrderItem(OrderItem orderItem) {
-        // Validate order exists
-        orderRepository.findById(orderItem.getOrderId())
-                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderItem.getOrderId()));
+        Order order = orderRepository.findById(orderItem.getOrder().getOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderItem.getOrder().getOrderId()));
 
-        // Validate product exists
-        Product product = productRepository.findById(orderItem.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", orderItem.getProductId()));
+        Product product = productRepository.findById(orderItem.getProduct().getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", orderItem.getProduct().getProductId()));
 
-        // Set unit price from product if not provided
         if (orderItem.getUnitPrice() == null) {
             orderItem.setUnitPrice(product.getPrice());
         }
 
-        // Set product name for convenience
-        orderItem.setProductName(product.getName());
+        orderItem.setOrder(order);
+        orderItem.setProduct(product);
 
         return orderItemRepository.save(orderItem);
     }
 
     @Override
     public OrderItem addOrderItem(int orderId, int productId, int quantity, BigDecimal unitPrice) {
-        OrderItem orderItem = new OrderItem(orderId, productId, quantity, unitPrice);
-        return addOrderItem(orderItem);
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setOrder(order);
+        orderItem.setProduct(product);
+        orderItem.setQuantity(quantity);
+        orderItem.setUnitPrice(unitPrice);
+
+        return orderItemRepository.save(orderItem);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<OrderItem> getOrderItemsByOrderId(int orderId) {
-        // Validate order exists
         if (!orderRepository.existsById(orderId)) {
             throw new ResourceNotFoundException("Order", "id", orderId);
         }
-
-        return orderItemRepository.findByOrderId(orderId);
+        return orderItemRepository.findByOrderOrderId(orderId);
     }
 
     @Override
@@ -88,37 +90,26 @@ public class OrderItemServiceImp implements OrderItemService {
             throw new BusinessException("Quantity must be at least 1");
         }
 
-        // Get order item
         OrderItem orderItem = getOrderItemById(orderItemId);
-
-        // Update quantity
         orderItem.setQuantity(quantity);
-
-        // Recalculate subtotal
-        orderItem.setSubtotal(orderItem.getUnitPrice().multiply(new BigDecimal(quantity)));
 
         return orderItemRepository.save(orderItem);
     }
 
     @Override
     public void deleteOrderItem(int orderItemId) {
-        // Verify order item exists
         if (!orderItemRepository.existsById(orderItemId)) {
             throw new ResourceNotFoundException("OrderItem", "id", orderItemId);
         }
-
         orderItemRepository.deleteById(orderItemId);
     }
 
     @Override
     public void deleteOrderItemsByOrderId(int orderId) {
-        // Validate order exists
         if (!orderRepository.existsById(orderId)) {
             throw new ResourceNotFoundException("Order", "id", orderId);
         }
-
-        // Get all items for the order and delete them
-        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        List<OrderItem> items = orderItemRepository.findByOrderOrderId(orderId);
         orderItemRepository.deleteAll(items);
     }
 

@@ -55,6 +55,7 @@ public class CategoryController {
             @ApiResponse(responseCode = "409", description = "Category name already exists",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
+
     @PostMapping
     public ResponseEntity<Category> createCategory(
             @Valid @RequestBody CreateCategoryDTO createCategoryDTO) {

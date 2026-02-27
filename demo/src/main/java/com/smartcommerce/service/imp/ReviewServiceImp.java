@@ -43,13 +43,13 @@ public class ReviewServiceImp implements ReviewService {
     @Override
     @Transactional(readOnly = true)
     public List<Review> getReviewsByProductId(int productId) {
-        return reviewRepository.findByProductIdOrderByReviewDateDesc(productId);
+        return reviewRepository.findByProduct_ProductIdOrderByReviewDateDesc(productId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Review> getReviewsByUserId(int userId) {
-        return reviewRepository.findByUserIdOrderByReviewDateDesc(userId);
+        return reviewRepository.findByUser_UserIdOrderByReviewDateDesc(userId);
     }
 
     @Override

@@ -1,16 +1,18 @@
 package com.smartcommerce.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.sql.Timestamp;
 
 @Entity
-@Table(name = "Reviews")
-@Data
+@Table(name = "Reviews" , indexes = {
+        @Index(name = "idx_reviews_product", columnList = "product_id"),
+        @Index(name = "idx_reviews_user", columnList = "user_id")
+})
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Review {
@@ -19,20 +21,16 @@ public class Review {
     @Column(name = "review_id")
     private int reviewId;
 
-    @Column(name = "user_id", nullable = false)
-    private int userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
-    @Column(name = "product_id", nullable = false)
-    private int productId;
-
-    @Transient
-    private String userName;
-
-    @Transient
-    private String productName;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private Product product;
 
     @Column(nullable = false)
-    private Integer rating;
+    private int rating;
 
     @Column(columnDefinition = "TEXT")
     private String comment;
@@ -41,15 +39,4 @@ public class Review {
     @Column(name = "review_date", updatable = false)
     private Timestamp reviewDate;
 
-    public Review(int userId, int productId, Integer rating, String comment) {
-        this.userId = userId;
-        this.productId = productId;
-        this.rating = rating;
-        this.comment = comment;
-    }
-
-    @Override
-    public String toString() {
-        return "Review{id=" + reviewId + ", productId=" + productId + ", rating=" + rating + "}";
-    }
 }

@@ -30,9 +30,10 @@ public class Category {
     @Column(name = "category_id")
     private int categoryId;
 
-    @Column(name = "category_name", nullable = false, unique = true)
+    @Column(name = "category_name", nullable = false, unique = true, length = 100)
     private String categoryName;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     @CreationTimestamp
@@ -46,15 +47,6 @@ public class Category {
     public Category(String categoryName, String description) {
         this.categoryName = categoryName;
         this.description = description;
-    }
-
-    public String getName() {
-        return categoryName;
-    }
-
-    @Override
-    public String toString() {
-        return categoryName;
     }
 }
 

@@ -9,8 +9,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,62 +27,32 @@ import com.smartcommerce.service.serviceInterface.InventoryServiceInterface;
  */
 @Service
 public class InventoryServiceImp implements InventoryServiceInterface {
-    
-    private final InventoryRepository inventoryRepository;
-    private Map<Integer, Inventory> inventoryCache;
-    private long lastCacheUpdate;
-    private static final long CACHE_VALIDITY = 120000; // 2 minutes (inventory changes frequently)
 
-    @Autowired
+
+    private final InventoryRepository inventoryRepository;
+
     public InventoryServiceImp(InventoryRepository inventoryRepository) {
         this.inventoryRepository = inventoryRepository;
-        this.inventoryCache = new HashMap<>();
-        this.lastCacheUpdate = 0;
     }
 
     @Override
+    @CacheEvict(value = "inventory", allEntries = true)
     public boolean updateInventory(int productId, int quantity) {
         int updated = inventoryRepository.updateInventoryQuantity(productId, quantity);
-        if (updated > 0) {
-            invalidateCache();
-            return true;
-        }
-        return false;
+        return updated > 0;
     }
 
     @Override
+    @Cacheable(value = "inventory", key = "#productId")
     public Inventory getInventoryByProductId(int productId) {
-        if (!inventoryCache.isEmpty() && inventoryCache.containsKey(productId)) {
-            long now = System.currentTimeMillis();
-            if ((now - lastCacheUpdate) < CACHE_VALIDITY) {
-                return inventoryCache.get(productId);
-            }
-        }
-        return inventoryRepository.findByProductId(productId).orElse(null);
+        return inventoryRepository.findByProductProductId(productId).orElse(null);
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "inventory")
     public Page<Inventory> getAllInventory(Pageable pageable) {
-        // For paginated results, skip cache and query database directly
         return inventoryRepository.findAll(pageable);
-    }
-
-    @Override
-    public List<Inventory> getAllInventory() {
-        long now = System.currentTimeMillis();
-
-        if (!inventoryCache.isEmpty() && (now - lastCacheUpdate) < CACHE_VALIDITY) {
-            System.out.println("✓ Inventory from cache");
-            return new ArrayList<>(inventoryCache.values());
-        }
-
-        System.out.println("✗ Fetching inventory from database");
-        List<Inventory> items = inventoryRepository.findAll();
-        inventoryCache = items.stream()
-                .collect(Collectors.toMap(Inventory::getProductId, i -> i));
-        lastCacheUpdate = now;
-        return new ArrayList<>(inventoryCache.values());
     }
 
     @Override
@@ -117,7 +90,7 @@ public class InventoryServiceImp implements InventoryServiceInterface {
     @Override
     public boolean reduceStock(int productId, int quantity) {
         // Get fresh data from database, not cache
-        Optional<Inventory> invOpt = inventoryRepository.findByProductId(productId);
+        Optional<Inventory> invOpt = inventoryRepository.findByProductProductId(productId);
         if (invOpt.isPresent()) {
             Inventory inv = invOpt.get();
             if (inv.getQuantityAvailable() >= quantity) {
@@ -132,9 +105,10 @@ public class InventoryServiceImp implements InventoryServiceInterface {
      * Business logic: Restock
      */
     @Override
+    @CacheEvict(value = "inventory", allEntries = true)
     public boolean addStock(int productId, int quantity) {
         // Get fresh data from database, not cache
-        Optional<Inventory> invOpt = inventoryRepository.findByProductId(productId);
+        Optional<Inventory> invOpt = inventoryRepository.findByProductProductId(productId);
         if (invOpt.isPresent()) {
             Inventory inv = invOpt.get();
             int newQuantity = inv.getQuantityAvailable() + quantity;
@@ -147,10 +121,9 @@ public class InventoryServiceImp implements InventoryServiceInterface {
      * Filtering: Out of stock items
      */
     @Override
+    @Transactional(readOnly = true)
     public List<Inventory> getOutOfStockItems() {
-        return getAllInventory().stream()
-                .filter(i -> i.getQuantityAvailable() == 0)
-                .collect(Collectors.toList());
+        return inventoryRepository.findByQuantityAvailable(0);
     }
 
     /**
@@ -158,25 +131,22 @@ public class InventoryServiceImp implements InventoryServiceInterface {
      */
     @Override
     public List<Inventory> sortByQuantity(boolean ascending) {
-        List<Inventory> items = getAllInventory();
-        if (ascending) {
-            items.sort(Comparator.comparing(Inventory::getQuantityAvailable));
-        } else {
-            items.sort(Comparator.comparing(Inventory::getQuantityAvailable).reversed());
-        }
-        return items;
+        Sort sort = ascending
+                ? Sort.by("quantityAvailable").ascending()
+                : Sort.by("quantityAvailable").descending();
+        return inventoryRepository.findAll(sort);
     }
+
 
     /**
      * Update stock for a product (alias for updateInventory)
      */
     @Override
+    @CacheEvict(value = "inventory", allEntries = true)
     public boolean updateStock(int productId, int quantity) {
         return updateInventory(productId, quantity);
     }
 
-    private void invalidateCache() {
-        inventoryCache.clear();
-        lastCacheUpdate = 0;
-    }
 }
+
+
