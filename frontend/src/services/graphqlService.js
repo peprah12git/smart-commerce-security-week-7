@@ -17,6 +17,7 @@ const graphqlService = {
           categoryId
           categoryName
           createdAt
+
         }
       }
     `;

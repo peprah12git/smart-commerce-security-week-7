@@ -70,8 +70,8 @@ public class ProductServiceImpl implements ProductService {
 
         // Build Sort object from string parameters
         Sort sort = buildSort(sortBy, sortDirection);
-        
-        List<Product> products = productRepository.findAll(sort);
+
+        List<Product> products = productRepository.findAllWithCategory(sort);
 
         if (filters != null && filters.hasFilters()) {
             products = applyFilters(products, filters);
@@ -172,8 +172,8 @@ public class ProductServiceImpl implements ProductService {
                     ". Valid fields: productName, price, createdAt, productId");
         };
 
-        Sort.Direction direction = "DESC".equalsIgnoreCase(sortDirection) 
-                ? Sort.Direction.DESC 
+        Sort.Direction direction = "DESC".equalsIgnoreCase(sortDirection)
+                ? Sort.Direction.DESC
                 : Sort.Direction.ASC;
 
         return Sort.by(direction, entityField);
@@ -221,7 +221,7 @@ public class ProductServiceImpl implements ProductService {
         validateProduct(productDetails, categoryId);
 
         // Update category if different
-        if (categoryId != null && (existingProduct.getCategory() == null || 
+        if (categoryId != null && (existingProduct.getCategory() == null ||
                 existingProduct.getCategory().getCategoryId() != categoryId)) {
             Category category = categoryRepository.findById(categoryId)
                     .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
@@ -261,9 +261,6 @@ public class ProductServiceImpl implements ProductService {
             return productRepository.findAll(pageable);
         }
 
-        // With filters, we need to fetch all with sorting, filter, then create a page
-        // Note: This is less efficient than database-level filtering
-        // For production, consider using Specifications or QueryDSL
         Sort sort = pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.ASC, "productId");
         List<Product> allProducts = productRepository.findAll(sort);
         List<Product> filteredProducts = applyFilters(allProducts, filters);

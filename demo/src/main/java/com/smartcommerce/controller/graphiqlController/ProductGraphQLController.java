@@ -49,6 +49,7 @@ public class ProductGraphQLController {
      * GraphQL Query: products(...): [Product!]!
      */
     @QueryMapping
+    @Transactional(readOnly = true)
     public List<Product> products(
             @Argument String category,
             @Argument Double minPrice,

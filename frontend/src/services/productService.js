@@ -16,7 +16,7 @@ const ProductService = {
       minPrice,
       maxPrice,
       searchTerm,
-      inStock,
+
     } = params;
 
     // Use GraphQL for simple filtering (no sorting/inStock filter)
@@ -68,10 +68,9 @@ const ProductService = {
     const response = await api.put(`/products/${id}`, productData);
     return response.data;
   },
-
-  // Update product quantity
+// Update product quantity
   updateProductQuantity: async (id, quantity) => {
-    const response = await api.patch(`/products/${id}/quantity`, { quantity });
+    const response = await api.put(`/inventory/${id}`, { quantity });
     return response.data;
   },
 

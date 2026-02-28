@@ -1,14 +1,8 @@
 package com.smartcommerce.service.imp;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -27,7 +21,6 @@ import com.smartcommerce.service.serviceInterface.InventoryServiceInterface;
  */
 @Service
 public class InventoryServiceImp implements InventoryServiceInterface {
-
 
     private final InventoryRepository inventoryRepository;
 
@@ -137,7 +130,6 @@ public class InventoryServiceImp implements InventoryServiceInterface {
         return inventoryRepository.findAll(sort);
     }
 
-
     /**
      * Update stock for a product (alias for updateInventory)
      */
@@ -147,6 +139,5 @@ public class InventoryServiceImp implements InventoryServiceInterface {
         return updateInventory(productId, quantity);
     }
 
+
 }
-
-

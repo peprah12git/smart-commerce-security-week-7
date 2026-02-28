@@ -1,8 +1,8 @@
 package com.smartcommerce.config;
 
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.concurrent.ConcurrentMapCache;
-import org.springframework.cache.support.SimpleCacheManager;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,9 +12,9 @@ import org.springframework.context.annotation.Configuration;
  * Acceptance Criteria: Cache configuration enabled using @EnableCaching
  */
 @Configuration
-
+@EnableCaching
 public class CacheConfig {
-    
+
     // Cache names as constants for type safety
     public static final String PRODUCTS_CACHE = "products";
     public static final String PRODUCT_CACHE = "product";
@@ -24,24 +24,18 @@ public class CacheConfig {
     public static final String USER_CACHE = "user";
     public static final String USER_EMAIL_CACHE = "userByEmail";
     public static final String INVENTORY_CACHE = "inventory";
-    
-    /**
-     * Configures cache manager with named caches
-     * Uses ConcurrentMapCache for simple in-memory caching
-     */
+
     @Bean
     public CacheManager cacheManager() {
-        SimpleCacheManager cacheManager = new SimpleCacheManager();
-        java.util.ArrayList<ConcurrentMapCache> caches = new java.util.ArrayList<>();
-        caches.add(new ConcurrentMapCache(PRODUCTS_CACHE));
-        caches.add(new ConcurrentMapCache(PRODUCT_CACHE));
-        caches.add(new ConcurrentMapCache(CATEGORIES_CACHE));
-        caches.add(new ConcurrentMapCache(CATEGORY_CACHE));
-        caches.add(new ConcurrentMapCache(USERS_CACHE));
-        caches.add(new ConcurrentMapCache(USER_CACHE));
-        caches.add(new ConcurrentMapCache(USER_EMAIL_CACHE));
-        caches.add(new ConcurrentMapCache(INVENTORY_CACHE));
-        cacheManager.setCaches(caches);
+        ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager(
+                PRODUCTS_CACHE,
+                PRODUCT_CACHE,
+                CATEGORIES_CACHE,
+                CATEGORY_CACHE,
+                USERS_CACHE,
+                USER_CACHE,
+                USER_EMAIL_CACHE,
+                INVENTORY_CACHE);
         return cacheManager;
     }
 }

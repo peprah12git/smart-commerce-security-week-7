@@ -31,4 +31,13 @@ public interface InventoryRepository extends JpaRepository<Inventory, Integer> {
     @Transactional
     @Query("UPDATE Inventory i SET i.quantityAvailable = :quantity WHERE i.product.productId = :productId")
     int updateInventoryQuantity(@Param("productId") int productId, @Param("quantity") int quantity);
+
+        @Query("""
+       SELECT i.product.productId, COALESCE(SUM(i.quantityAvailable), 0)
+       FROM Inventory i
+       WHERE i.product.productId IN :productIds
+       GROUP BY i.product.productId
+       """)
+    List<Object[]> sumStockForProducts(@Param("productIds") List<Integer> productIds);
+
 }

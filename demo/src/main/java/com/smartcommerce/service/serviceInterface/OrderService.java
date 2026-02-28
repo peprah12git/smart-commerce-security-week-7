@@ -4,7 +4,6 @@ import java.sql.Timestamp;
 import java.util.List;
 
 import com.smartcommerce.dtos.request.CreateOrderDTO;
-import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
