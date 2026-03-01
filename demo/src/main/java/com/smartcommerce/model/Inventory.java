@@ -1,5 +1,6 @@
 package com.smartcommerce.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,6 +23,7 @@ public class Inventory {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", unique = true)
+    @JsonIgnore
     private Product product;
 
     @Transient

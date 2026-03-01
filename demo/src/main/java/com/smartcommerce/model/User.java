@@ -45,12 +45,15 @@ public class User {
     private Timestamp createdAt;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Order> orders;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<CartItem> cartItems;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Review> reviews;
 
     public User(String name, String email, String password, String phone, String address) {

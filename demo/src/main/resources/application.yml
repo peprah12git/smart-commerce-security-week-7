@@ -12,3 +12,7 @@ server:
 #    path: /v3/api-docs           # OpenAPI JSON endpoint
 #  swagger-ui:
 #    path: /swagger-ui.html       # Swagger UI location
+
+spring:
+  jpa:
+    show-sql: false

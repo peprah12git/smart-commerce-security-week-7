@@ -204,5 +204,15 @@ public class ProductGraphQLController {
         return product.getCategory() != null ? product.getCategory().getCategoryName() : null;
     }
 
+    /**
+     * Resolve inventory field for Product type
+     * Fetches inventory data for the product
+     */
+    @SchemaMapping(typeName = "Product", field = "inventory")
+    @Transactional(readOnly = true)
+    public com.smartcommerce.model.Inventory inventory(Product product) {
+        return product.getInventory();
+    }
+
 
 }
