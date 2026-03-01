@@ -32,6 +32,9 @@ Transactions ensure **ACID** properties:
 - ✅ Propagation behavior for nested transactions
 - ✅ Read-only optimization for query operations
 - ✅ Custom rollback rules for checked exceptions
+- ✅ Service-layer transaction boundaries
+- ✅ JPA repository integration
+- ✅ Performance monitoring with aspects
 
 ---
 
@@ -932,14 +935,14 @@ public void processItem(Item item) {
 
 ### Transaction Strategy Overview
 
-| Operation Type | readOnly | Isolation | Propagation |
-|----------------|----------|-----------|-------------|
-| Simple Query | true | READ_COMMITTED | REQUIRED |
-| Complex Query | true | READ_COMMITTED | REQUIRED |
-| Create/Update | false | READ_COMMITTED | REQUIRED |
-| Delete | false | READ_COMMITTED | REQUIRED |
-| Financial | false | REPEATABLE_READ | REQUIRED |
-| Audit Log | false | READ_COMMITTED | REQUIRES_NEW |
+| Operation Type | readOnly | Isolation | Propagation | Repository Type |
+|----------------|----------|-----------|-------------|------------------|
+| Simple Query | true | READ_COMMITTED | REQUIRED | JPA Derived |
+| Complex Query | true | READ_COMMITTED | REQUIRED | JPA Custom JPQL |
+| Create/Update | false | READ_COMMITTED | REQUIRED | JPA save() |
+| Delete | false | READ_COMMITTED | REQUIRED | JPA deleteById() |
+| Financial | false | REPEATABLE_READ | REQUIRED | JPA with locking |
+| Audit Log | false | READ_COMMITTED | REQUIRES_NEW | JPA independent |
 
 ### Rollback Rules
 
@@ -954,11 +957,17 @@ public void processItem(Item item) {
 3. **Default Isolation** - READ_COMMITTED is best for 90% of cases
 4. **Keep Transactions Short** - No external API calls, file I/O, or long computations
 5. **Let Exceptions Propagate** - Don't catch and swallow, transaction won't rollback
-6. **Use JOIN FETCH** - Prevent LazyInitializationException
+6. **Use JOIN FETCH** - Prevent LazyInitializationException with JPA queries
 7. **Test Rollback** - Verify rollback behavior in unit tests
+8. **JPA Integration** - All repositories use Spring Data JPA with automatic transaction support
+9. **Cache Coordination** - @CacheEvict works with @Transactional for consistency
+10. **Performance Monitoring** - PerformanceMonitoringAspect tracks transaction execution times
 
 ### References
 
 - Spring Transaction Documentation: https://docs.spring.io/spring-framework/docs/current/reference/html/data-access.html#transaction
 - ACID Properties: https://en.wikipedia.org/wiki/ACID
 - Isolation Levels: https://en.wikipedia.org/wiki/Isolation_(database_systems)
+- Repository Documentation: `REPOSITORY_DOCUMENTATION.md`
+- Caching Strategy: `CACHING_IMPLEMENTATION_SUMMARY.txt`
+- Performance Monitoring: PerformanceMonitoringAspect.java

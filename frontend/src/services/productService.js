@@ -9,20 +9,8 @@ const ProductService = {
 
   // Get products with filtering - USE GRAPHQL
   getProducts: async (params = {}) => {
-    const {
-      sortBy = 'productId',
-      sortDirection = 'ASC',
-      category,
-      minPrice,
-      maxPrice,
-      searchTerm,
-      stock,
-      inStock,
-      page = 0,
-      size = 10
-    } = params;
+    const { category, minPrice, maxPrice, searchTerm, page = 0, size = 10 } = params;
 
-    // Use GraphQL for queries
     return await graphqlService.getProducts({ 
       category, 
       minPrice, 

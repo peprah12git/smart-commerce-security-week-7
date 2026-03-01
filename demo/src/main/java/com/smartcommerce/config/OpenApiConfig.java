@@ -1,25 +1,21 @@
 package com.smartcommerce.config;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.info.License;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.servers.Server;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * OpenAPI 3.0 configuration for SmartCommerce API documentation.
- * Swagger UI available at: /api/swagger-ui.html
- * OpenAPI JSON spec at:    /api/v3/api-docs
- */
 @Configuration
-@OpenAPIDefinition( // defines global API metadata
+@OpenAPIDefinition(
         info = @Info(
                 title = "SmartCommerce API",
                 version = "1.0.0",
-                description = "RESTful API for the SmartCommerce e-commerce platform. "
-                        + "Provides endpoints for managing products, categories, and users "
-                        + "with support for pagination, filtering, and sorting.",
+                description = "RESTful API for the SmartCommerce e-commerce platform.",
                 contact = @Contact(
                         name = "SmartCommerce Team",
                         email = "support@smartcommerce.com"
@@ -31,8 +27,17 @@ import org.springframework.context.annotation.Configuration;
         ),
         servers = {
                 @Server(url = "http://localhost:8080", description = "Local Development Server")
+        },
+        security = {
+                @SecurityRequirement(name = "bearerAuth")
         }
 )
+@SecurityScheme(
+        name = "bearerAuth",
+        type = SecuritySchemeType.HTTP,
+        scheme = "bearer",
+        bearerFormat = "JWT",
+        description = "JWT Authorization header using the Bearer scheme"
+)
 public class OpenApiConfig {
-
 }

@@ -122,34 +122,6 @@ public class ProductGraphQLController {
         return ProductPageGraphQL.of(productsPage);
     }
 
-    /**
-     * Search products with pagination
-     * GraphQL Query: searchProductsPaged(...): ProductPage!
-     * Default page size is 10
-     */
-    @QueryMapping
-    public ProductPageGraphQL searchProductsPaged(
-            @Argument String searchTerm,
-            @Argument Integer page,
-            @Argument Integer size,
-            @Argument String sortBy,
-            @Argument String sortDirection) {
-
-        // Set defaults
-        int pageNumber = page != null ? page : 0;
-        int pageSize = size != null ? size : 10;
-        String sortField = sortBy != null ? sortBy : "productName";
-        String direction = sortDirection != null ? sortDirection : "ASC";
-
-        // Create pageable
-        Sort.Direction sortDir = "DESC".equalsIgnoreCase(direction) ? Sort.Direction.DESC : Sort.Direction.ASC;
-        Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(sortDir, sortField));
-
-        // Get paginated search results
-        Page<Product> productsPage = productService.searchProducts(searchTerm, pageable);
-        return ProductPageGraphQL.of(productsPage);
-    }
-
     // ==================== MUTATIONS ====================
 
     /**

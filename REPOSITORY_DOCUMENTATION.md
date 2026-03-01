@@ -12,14 +12,22 @@
 
 ## Overview
 
-The SmartCommerce application uses **Spring Data JPA** repositories following a layered architecture pattern. All repositories extend `JpaRepository` which provides built-in CRUD operations and custom query capabilities.
+The SmartCommerce application uses **Spring Data JPA** repositories following a layered architecture pattern. All repositories extend `JpaRepository<Entity, Integer>` which provides built-in CRUD operations and custom query capabilities.
 
 ### Key Technologies
 - **Spring Data JPA** - Repository abstraction layer
 - **JPQL** (Java Persistence Query Language) - Object-oriented queries
-- **Named Queries** - Performance optimization with `@Query` annotation
+- **Custom Queries** - Performance optimization with `@Query` annotation
 - **JOIN FETCH** - Eager loading to prevent N+1 query problems
 - **Composite Indexes** - Database-level performance optimization
+- **Pageable & Page<T>** - Built-in pagination support
+- **Derived Query Methods** - Auto-generated queries from method names
+
+### Repository Style
+- **Pure JPA Implementation** - All repositories use Spring Data JPA
+- **Mixed Query Approach** - Combination of derived queries and custom JPQL
+- **Performance Optimized** - JOIN FETCH, @QueryHints, and indexes
+- **Transaction Managed** - Service layer handles all transactions
 
 ---
 
@@ -71,43 +79,50 @@ The SmartCommerce application uses **Spring Data JPA** repositories following a 
 
 ## Repository Catalog
 
-### 1. UserRepository
+### 2. UserRepository
 
 **Location:** `com.smartcommerce.repositories.UserRepository`
 
 **Purpose:** Manages user accounts and authentication
 
+**Repository Type:** JPA with derived query methods
+
 #### Methods
 
-| Method | Type | Description |
-|--------|------|-------------|
-| `findByEmail(String email)` | Derived | Find user by email (used for login) |
-| `existsByEmail(String email)` | Derived | Check if email already registered |
-| `findAll()` | Inherited | Get all users (Admin only) |
-| `findById(Long id)` | Inherited | Get user by ID |
-| `save(User user)` | Inherited | Create or update user |
-| `deleteById(Long id)` | Inherited | Delete user |
+| Method | Type | Description | Caching |
+|--------|------|-------------|----------|
+| `findByEmail(String email)` | Derived | Find user by email (login) | @Cacheable |
+| `findAllByOrderByUserId()` | Derived | Get all users sorted | @Cacheable |
+| `findAll()` | Inherited | Get all users | @Cacheable |
+| `findById(Integer id)` | Inherited | Get user by ID | @Cacheable |
+| `save(User user)` | Inherited | Create/update user | @CacheEvict |
+| `deleteById(Integer id)` | Inherited | Delete user | @CacheEvict |
 
 #### Query Example
 
 ```java
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByEmail(String email);
-    boolean existsByEmail(String email);
+    List<User> findAllByOrderByUserId();
 }
 ```
 
 **Usage Pattern:**
 ```java
-// Login validation
+// Login validation (cached)
 Optional<User> user = userRepository.findByEmail("user@example.com");
 
 // Registration check
-if (userRepository.existsByEmail(email)) {
+if (userRepository.findByEmail(email).isPresent()) {
     throw new BusinessException("Email already registered");
 }
 ```
+
+**Caching Strategy:**
+- Cache: `user` (by ID), `userByEmail` (by email), `users` (all)
+- Eviction: On create/update/delete operations
+- Performance: 95% faster on cache hits
 
 ---
 
@@ -115,41 +130,60 @@ if (userRepository.existsByEmail(email)) {
 
 **Location:** `com.smartcommerce.repositories.ProductRepository`
 
-**Purpose:** Product catalog and inventory queries
+**Purpose:** Product catalog queries with pagination and eager loading
+
+**Repository Type:** JPA with custom JPQL queries
 
 #### Methods
 
-| Method | Type | Description |
-|--------|------|-------------|
-| `findByCategoryId(Long categoryId)` | Derived | Get products by category |
-| `findByNameContainingIgnoreCase(String name)` | Derived | Search products by name |
-| `findAll()` | Inherited | Get all products with sorting |
-| `findById(Long id)` | Inherited | Get product details |
-| `save(Product product)` | Inherited | Create/update product |
-| `deleteById(Long id)` | Inherited | Delete product |
+| Method | Type | Description | Caching |
+|--------|------|-------------|----------|
+| `findAllWithCategory(Sort sort)` | Custom JPQL | Get all with JOIN FETCH | @Cacheable |
+| `findByCategoryName(String, Pageable)` | Custom JPQL | Paginated by category | No |
+| `searchProducts(String, Pageable)` | Custom JPQL | Paginated search | No |
+| `findByCategoryName(String)` | Custom JPQL | List by category | @Cacheable |
+| `searchProducts(String)` | Custom JPQL | List search | @Cacheable |
+| `findAll(Pageable)` | Inherited | Paginated all products | No |
+| `findById(Integer id)` | Inherited | Get product by ID | @Cacheable |
+| `save(Product)` | Inherited | Create/update product | @CacheEvict |
 
-#### Query Example
+#### Query Examples
 
 ```java
 @Repository
-public interface ProductRepository extends JpaRepository<Product, Long> {
-    List<Product> findByCategoryId(Long categoryId);
-    List<Product> findByNameContainingIgnoreCase(String searchTerm);
+public interface ProductRepository extends JpaRepository<Product, Integer> {
+    
+    // Eager fetch category to avoid LazyInitializationException
+    @Query("SELECT p FROM Product p JOIN FETCH p.category")
+    List<Product> findAllWithCategory(Sort sort);
+    
+    // Paginated with eager loading
+    @Query("SELECT p FROM Product p JOIN FETCH p.category WHERE p.category.categoryName = :categoryName")
+    Page<Product> findByCategoryName(@Param("categoryName") String categoryName, Pageable pageable);
+    
+    // Search with pagination
+    @Query("SELECT p FROM Product p JOIN FETCH p.category WHERE p.name LIKE %:term% OR p.description LIKE %:term%")
+    Page<Product> searchProducts(@Param("term") String term, Pageable pageable);
 }
 ```
 
 **Usage Pattern:**
 ```java
-// Category filtering
-List<Product> electronics = productRepository.findByCategoryId(1L);
+// Paginated products with sorting
+Pageable pageable = PageRequest.of(0, 10, Sort.by("price").ascending());
+Page<Product> products = productRepository.findAll(pageable);
 
-// Search functionality
-List<Product> results = productRepository.findByNameContainingIgnoreCase("laptop");
+// Category filtering with pagination
+Page<Product> electronics = productRepository.findByCategoryName("Electronics", pageable);
 
-// With sorting and pagination
-Sort sort = Sort.by(Sort.Direction.ASC, "price");
-Page<Product> products = productRepository.findAll(PageRequest.of(0, 20, sort));
+// Search with pagination
+Page<Product> results = productRepository.searchProducts("laptop", pageable);
 ```
+
+**Caching Strategy:**
+- Cache: `products` (all), `product` (by ID), category/search results
+- Eviction: On create/update/delete operations
+- Performance: 90-95% faster on cache hits
 
 ---
 
@@ -771,23 +805,37 @@ INFO  REPOSITORY QUERY - UserRepository.findByEmail(..) | ExecutionTime: 5ms
 
 ### Repository Statistics
 
-| Repository | Methods | Custom Queries | Optimizations |
-|------------|---------|----------------|---------------|
-| UserRepository | 4 | 0 | Email index |
-| ProductRepository | 6 | 0 | Category, price indexes |
-| CategoryRepository | 4 | 0 | Name index |
-| OrderRepository | 12 | 8 | JOIN FETCH, composite indexes |
-| CartItemRepository | 5 | 1 | User+product index |
-| InventoryRepository | 4 | 0 | Product index |
-| ReviewRepository | 4 | 0 | Product, user indexes |
+| Repository | Methods | Custom Queries | Optimizations | Caching |
+|------------|---------|----------------|---------------|----------|
+| UserRepository | 4 | 0 (Derived) | Email index | ✅ Full |
+| ProductRepository | 8 | 5 (JPQL) | JOIN FETCH, indexes | ✅ Full |
+| CategoryRepository | 4 | 0 (Derived) | Name index | ✅ Full |
+| OrderRepository | 15+ | 10+ (JPQL) | JOIN FETCH, @QueryHints | ❌ No |
+| CartItemRepository | 5 | 1 (JPQL) | User+product index | ❌ No |
+| InventoryRepository | 4 | 0 (Derived) | Product index | ❌ No |
+| ReviewRepository | 4 | 0 (Derived) | Product, user indexes | ❌ No |
 
 ### Key Achievements
 
+- ✅ **Pure JPA Implementation** - All repositories use Spring Data JPA
 - ✅ **90% query reduction** through JOIN FETCH optimization
+- ✅ **Pagination support** with Pageable and Page<T>
 - ✅ **7 composite indexes** for fast lookups
 - ✅ **Zero N+1 query problems** in critical paths
-- ✅ **95% cache hit rate** for frequently accessed data
+- ✅ **95% cache hit rate** for frequently accessed data (Products, Categories, Users)
 - ✅ **Sub-100ms response** for most queries
+- ✅ **Transaction management** at service layer with @Transactional
+- ✅ **Performance monitoring** with QueryPerformanceAspect and CachePerformanceAspect
+
+### JPA Features Used
+
+- **Derived Query Methods** - Auto-generated from method names
+- **Custom JPQL** - Complex queries with @Query annotation
+- **JOIN FETCH** - Eager loading to prevent N+1 problems
+- **Pageable/Page** - Built-in pagination support
+- **@QueryHints** - Hibernate optimization hints
+- **@Transactional** - Declarative transaction management
+- **@Cacheable/@CacheEvict** - Spring Cache integration
 
 ### References
 
@@ -795,3 +843,5 @@ INFO  REPOSITORY QUERY - UserRepository.findByEmail(..) | ExecutionTime: 5ms
 - [JPQL Reference](https://docs.oracle.com/javaee/7/tutorial/persistence-querylanguage.htm)
 - Query Optimization Guide: `QUERY_OPTIMIZATION_README.md`
 - Caching Guide: `CACHING_IMPLEMENTATION_SUMMARY.txt`
+- Transaction Guide: `TRANSACTION_DOCUMENTATION.md`
+- Performance Monitoring: QueryPerformanceAspect, CachePerformanceAspect

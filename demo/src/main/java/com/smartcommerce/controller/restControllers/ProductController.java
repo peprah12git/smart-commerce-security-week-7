@@ -149,15 +149,14 @@ public class ProductController {
      * Get products with sorting and filtering
      * GET /api/products?sortBy=price&sortDirection=ASC&category=Electronics&minPrice=100&maxPrice=1000&searchTerm=phone&inStock=true
      *
-     * @param sortBy        Sort field (default: productId)
-     *                      Options: productName, price, categoryName, quantity, createdAt, productId
-     * @param sortDirection Sort direction (default: ASC)
-     *                      Options: ASC, DESC
-     * @param category      Filter by category name
-     * @param minPrice      Filter by minimum price
-     * @param maxPrice      Filter by maximum price
-     * @param searchTerm    Search in product name and description
-     * @param inStock       Filter by stock status (true=in stock, false=out of stock)
+     * @param sortBy
+     *
+     * @param sortDirection
+     * @param category
+     * @param minPrice
+     * @param maxPrice
+     * @param searchTerm
+     * @param inStock
      */
     @Operation(summary = "Get products with filtering",
             description = "Retrieves products with support for sorting and multiple filter criteria")
@@ -214,20 +213,20 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Get products by category (without pagination)
-     * GET /api/products/category/{categoryName}
-     */
-    @Operation(summary = "Get products by category", description = "Retrieves all products belonging to a specific category")
-    @ApiResponse(responseCode = "200", description = "Products retrieved successfully")
-    @GetMapping("/category/{categoryName}")
-    public ResponseEntity<List<ProductResponse>> getProductsByCategory(
-            @Parameter(description = "Category name", required = true, example = "Electronics")
-            @PathVariable String categoryName) {
-        List<Product> products = productService.getProductsByCategory(categoryName);
-        List<ProductResponse> response = ProductMapper.toProductResponseList(products);
-        return ResponseEntity.ok(response);
-    }
+//    /**
+//     * Get products by category (without pagination)
+//     * GET /api/products/category/{categoryName}
+//     */
+//    @Operation(summary = "Get products by category", description = "Retrieves all products belonging to a specific category")
+//    @ApiResponse(responseCode = "200", description = "Products retrieved successfully")
+//    @GetMapping("/category/{categoryName}")
+//    public ResponseEntity<List<ProductResponse>> getProductsByCategory(
+//            @Parameter(description = "Category name", required = true, example = "Electronics")
+//            @PathVariable String categoryName) {
+//        List<Product> products = productService.getProductsByCategory(categoryName);
+//        List<ProductResponse> response = ProductMapper.toProductResponseList(products);
+//        return ResponseEntity.ok(response);
+//    }
 
     /**
      * Get products by category with pagination
