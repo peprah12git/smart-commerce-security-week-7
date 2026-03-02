@@ -27,7 +27,6 @@ import com.smartcommerce.dtos.response.ProductResponse;
 import com.smartcommerce.exception.ErrorResponse;
 import com.smartcommerce.exception.ValidationErrorResponse;
 import com.smartcommerce.model.Product;
-import com.smartcommerce.security.RequiredRole;
 import com.smartcommerce.service.serviceInterface.ProductService;
 import com.smartcommerce.utils.ProductMapper;
 import com.smartcommerce.validation.ValidSortDirection;
@@ -76,7 +75,6 @@ public class ProductController {
 
     })
     @PostMapping
-    @RequiredRole("ADMIN") // Only admins can create products
     public ResponseEntity<ProductResponse> createProduct(
             @Valid @RequestBody CreateProductDTO createProductDTO) {
         Product product = new Product();
@@ -294,7 +292,6 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product or category not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @RequiredRole("ADMIN")
     @PutMapping("/{id}")
     public ResponseEntity<ProductResponse> updateProduct(
             @Parameter(description = "Product ID to update", required = true, example = "1")
@@ -322,7 +319,6 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @RequiredRole("ADMIN")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProduct(
             @Parameter(description = "Product ID to delete", required = true, example = "1")

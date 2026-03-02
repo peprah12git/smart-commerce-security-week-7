@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -65,11 +64,10 @@ public class CartController {
     })
     @PostMapping("/items")
     public ResponseEntity<CartItemResponse> addToCart(
-            @Valid @RequestBody AddToCartDTO addToCartDTO,
-            @RequestAttribute("userId") Integer userId) {
+            @Valid @RequestBody AddToCartDTO addToCartDTO) {
 
         CartItem cartItem = cartItemService.addToCart(
-                userId,
+                addToCartDTO.userId(),
                 addToCartDTO.productId(),
                 addToCartDTO.quantity()
         );
@@ -94,14 +92,14 @@ public class CartController {
     })
     @GetMapping("/user/{userId}")
     public ResponseEntity<CartResponse> getUserCart(
-            @RequestAttribute("userId") Integer authenticatedUserId) {
+            @PathVariable int userId) {
 
-        List<CartItem> cartItems = cartItemService.getCartItemsWithDetails(authenticatedUserId);
+        List<CartItem> cartItems = cartItemService.getCartItemsWithDetails(userId);
         List<CartItemResponse> itemResponses = CartItemMapper.toCartItemResponseList(cartItems);
-        int itemCount = cartItemService.getCartItemCount(authenticatedUserId);
-        BigDecimal total = cartItemService.getCartTotal(authenticatedUserId);
+        int itemCount = cartItemService.getCartItemCount(userId);
+        BigDecimal total = cartItemService.getCartTotal(userId);
 
-        CartResponse response = new CartResponse(authenticatedUserId, itemResponses, itemCount, total);
+        CartResponse response = new CartResponse(userId, itemResponses, itemCount, total);
 
         return ResponseEntity.ok(response);
     }
@@ -118,9 +116,9 @@ public class CartController {
     })
     @GetMapping("/user/{userId}/items")
     public ResponseEntity<List<CartItemResponse>> getCartItems(
-            @RequestAttribute("userId") Integer authenticatedUserId) {
+            @PathVariable int userId) {
 
-        List<CartItem> cartItems = cartItemService.getCartItemsWithDetails(authenticatedUserId);
+        List<CartItem> cartItems = cartItemService.getCartItemsWithDetails(userId);
         List<CartItemResponse> response = CartItemMapper.toCartItemResponseList(cartItems);
 
         return ResponseEntity.ok(response);
@@ -139,11 +137,11 @@ public class CartController {
     })
     @GetMapping("/user/{userId}/items/{productId}")
     public ResponseEntity<CartItemResponse> getCartItem(
-            @RequestAttribute("userId") Integer authenticatedUserId,
+            @PathVariable int userId,
             @Parameter(description = "Product ID", required = true, example = "5")
             @PathVariable int productId) {
 
-        CartItem cartItem = cartItemService.getCartItem(authenticatedUserId, productId);
+        CartItem cartItem = cartItemService.getCartItem(userId, productId);
         CartItemResponse response = CartItemMapper.toCartItemResponse(cartItem);
 
         return ResponseEntity.ok(response);
@@ -164,12 +162,12 @@ public class CartController {
     })
     @PutMapping("/user/{userId}/items/{productId}")
     public ResponseEntity<CartItemResponse> updateCartItemQuantity(
-            @RequestAttribute("userId") Integer authenticatedUserId,
+            @PathVariable int userId,
             @Parameter(description = "Product ID", required = true, example = "5")
             @PathVariable int productId,
             @Valid @RequestBody UpdateCartItemDTO updateDTO) {
 
-        CartItem updatedItem = cartItemService.updateQuantity(authenticatedUserId, productId, updateDTO.quantity());
+        CartItem updatedItem = cartItemService.updateQuantity(userId, productId, updateDTO.quantity());
         CartItemResponse response = CartItemMapper.toCartItemResponse(updatedItem);
 
         return ResponseEntity.ok(response);
@@ -187,11 +185,11 @@ public class CartController {
     })
     @DeleteMapping("/user/{userId}/items/{productId}")
     public ResponseEntity<Void> removeFromCart(
-            @RequestAttribute("userId") Integer authenticatedUserId,
+            @PathVariable int userId,
             @Parameter(description = "Product ID", required = true, example = "5")
             @PathVariable int productId) {
 
-        cartItemService.removeFromCart(authenticatedUserId, productId);
+        cartItemService.removeFromCart(userId, productId);
 
         return ResponseEntity.noContent().build();
     }
@@ -208,9 +206,9 @@ public class CartController {
     })
     @DeleteMapping("/user/{userId}")
     public ResponseEntity<Void> clearCart(
-            @RequestAttribute("userId") Integer authenticatedUserId) {
+            @PathVariable int userId) {
 
-        cartItemService.clearCart(authenticatedUserId);
+        cartItemService.clearCart(userId);
 
         return ResponseEntity.noContent().build();
     }
@@ -227,9 +225,9 @@ public class CartController {
     })
     @GetMapping("/user/{userId}/count")
     public ResponseEntity<Integer> getCartItemCount(
-            @RequestAttribute("userId") Integer authenticatedUserId) {
+            @PathVariable int userId) {
 
-        int count = cartItemService.getCartItemCount(authenticatedUserId);
+        int count = cartItemService.getCartItemCount(userId);
 
         return ResponseEntity.ok(count);
     }
@@ -246,9 +244,9 @@ public class CartController {
     })
     @GetMapping("/user/{userId}/total")
     public ResponseEntity<BigDecimal> getCartTotal(
-            @RequestAttribute("userId") Integer authenticatedUserId) {
+            @PathVariable int userId) {
 
-        BigDecimal total = cartItemService.getCartTotal(authenticatedUserId);
+        BigDecimal total = cartItemService.getCartTotal(userId);
 
         return ResponseEntity.ok(total);
     }

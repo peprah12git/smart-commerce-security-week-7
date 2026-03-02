@@ -67,10 +67,9 @@ public class OrderController {
         })
         @PostMapping
         public ResponseEntity<OrderResponse> createOrder(
-                        @Valid @RequestBody CreateOrderDTO createOrderDTO,
-                        @RequestAttribute("userId") Integer userId) {
+                        @Valid @RequestBody CreateOrderDTO createOrderDTO) {
 
-                Order createdOrder = orderService.createOrder(userId, createOrderDTO);
+                Order createdOrder = orderService.createOrder(createOrderDTO.userId(), createOrderDTO);
                 OrderResponse response = OrderMapper.toOrderResponse(createdOrder);
                 return ResponseEntity.status(HttpStatus.CREATED).body(response);
         }
@@ -134,9 +133,9 @@ public class OrderController {
         })
         @GetMapping("/user/{userId}")
         public ResponseEntity<List<OrderResponse>> getOrdersByUserId(
-                        @RequestAttribute("userId") Integer authenticatedUserId) {
+                        @PathVariable int userId) {
 
-                List<Order> orders = orderService.getOrdersByUserId(authenticatedUserId);
+                List<Order> orders = orderService.getOrdersByUserId(userId);
                 List<OrderResponse> response = OrderMapper.toOrderResponseList(orders);
                 return ResponseEntity.ok(response);
         }
@@ -152,10 +151,10 @@ public class OrderController {
         })
         @GetMapping("/user/{userId}/paged")
         public ResponseEntity<PagedResponse<OrderResponse>> getOrdersByUserIdPaged(
-                        @RequestAttribute("userId") Integer authenticatedUserId,
+                        @PathVariable int userId,
                         @PageableDefault(size = 10, sort = "orderDate", direction = Sort.Direction.DESC) Pageable pageable) {
 
-                Page<Order> ordersPage = orderService.getOrdersByUserId(authenticatedUserId, pageable);
+                Page<Order> ordersPage = orderService.getOrdersByUserId(userId, pageable);
                 Page<OrderResponse> responsePage = ordersPage.map(OrderMapper::toOrderResponse);
                 PagedResponse<OrderResponse> pagedResponse = PagedResponse.of(responsePage);
 
@@ -251,9 +250,9 @@ public class OrderController {
         })
         @PostMapping("/from-cart")
         public ResponseEntity<OrderResponse> createOrderFromCart(
-                        @RequestAttribute("userId") Integer authenticatedUserId) {
+                        @org.springframework.web.bind.annotation.RequestParam int userId) {
 
-                Order order = orderService.checkoutFromCart(authenticatedUserId);
+                Order order = orderService.checkoutFromCart(userId);
                 OrderResponse response = OrderMapper.toOrderResponse(order);
                 return ResponseEntity.status(HttpStatus.CREATED).body(response);
         }
@@ -291,7 +290,7 @@ public class OrderController {
         })
         @GetMapping("/user/status/{status}")
         public ResponseEntity<List<OrderResponse>> getUserOrdersByStatus(
-                        @RequestAttribute("userId") Integer userId,
+                        @org.springframework.web.bind.annotation.RequestParam int userId,
                         @Parameter(description = "Order status", required = true, example = "completed") @PathVariable String status) {
 
                 List<Order> orders = orderService.getUserOrdersByStatus(userId, status);

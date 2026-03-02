@@ -23,7 +23,6 @@ import com.smartcommerce.dtos.response.PagedResponse;
 import com.smartcommerce.exception.ErrorResponse;
 import com.smartcommerce.exception.ValidationErrorResponse;
 import com.smartcommerce.model.Inventory;
-import com.smartcommerce.security.RequiredRole;
 import com.smartcommerce.service.serviceInterface.InventoryServiceInterface;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -167,7 +166,6 @@ public class InventoryController {
     })
     //PUT "/api/inventory/1?quantity=40"
     @PutMapping("/{productId}")
-    @RequiredRole("ADMIN")
     public ResponseEntity<Void> updateInventory(
             @Parameter(description = "Product ID", required = true, example = "1")
             @PathVariable int productId,
@@ -189,7 +187,6 @@ public class InventoryController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping("/{productId}/stock-additions")
-    @RequiredRole("ADMIN")
     public ResponseEntity<Void> addStock(
             @Parameter(description = "Product ID", required = true, example = "1")
             @PathVariable int productId,
@@ -211,7 +208,6 @@ public class InventoryController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping("/{productId}/stock-reductions")
-    @RequiredRole("ADMIN")
     public ResponseEntity<Void> reduceStock(
             @Parameter(description = "Product ID", required = true, example = "1")
             @PathVariable int productId,

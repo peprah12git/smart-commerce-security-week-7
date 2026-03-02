@@ -2,7 +2,6 @@ package com.smartcommerce.controller.restControllers;
 
 import com.smartcommerce.dtos.request.UpdateReviewDTO;
 import com.smartcommerce.model.Review;
-import com.smartcommerce.model.User;
 import com.smartcommerce.service.serviceInterface.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,11 +26,7 @@ public class ReviewController {
     @Operation(summary = "Create a new review")
     @PostMapping
     public ResponseEntity<Review> createReview(
-            @RequestBody Review review,
-            @RequestAttribute("userId") Integer userId) {
-        User user = new User();
-        user.setUserId(userId);
-        review.setUser(user);
+            @RequestBody Review review) {
         Review created = reviewService.createReview(review);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
@@ -53,8 +48,8 @@ public class ReviewController {
     @Operation(summary = "Get all reviews by a user")
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<Review>> getReviewsByUserId(
-            @RequestAttribute("userId") Integer authenticatedUserId) {
-        List<Review> reviews = reviewService.getReviewsByUserId(authenticatedUserId);
+            @PathVariable int userId) {
+        List<Review> reviews = reviewService.getReviewsByUserId(userId);
         return ResponseEntity.ok(reviews);
     }
 

@@ -9,17 +9,13 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.smartcommerce.dtos.response.LoginResponse;
-import com.smartcommerce.dtos.response.UserResponse;
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.DuplicateResourceException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.User;
 import com.smartcommerce.repositories.UserRepository;
 import com.smartcommerce.service.serviceInterface.UserService;
-import com.smartcommerce.utils.UserMapper;
 
-import at.favre.lib.crypto.bcrypt.BCrypt;
 import lombok.AllArgsConstructor;
 
 /**
@@ -32,7 +28,6 @@ import lombok.AllArgsConstructor;
 public class UserServiceImp implements UserService {
 
     private UserRepository userRepository;
-    private com.smartcommerce.security.JwtUtil jwtUtil;
 
     /**
      * Creates a new user
@@ -61,10 +56,6 @@ public class UserServiceImp implements UserService {
         if (user.getRole() == null || user.getRole().trim().isEmpty()) {
             user.setRole("CUSTOMER");
         }
-
-        // Hash the password before saving
-        String hashedPassword = BCrypt.withDefaults().hashToString(12, user.getPassword().toCharArray());
-        user.setPassword(hashedPassword);
 
         // Save and return user
         return userRepository.save(user);
@@ -156,9 +147,7 @@ public class UserServiceImp implements UserService {
 
         // Update password only if provided
         if (userDetails.getPassword() != null && !userDetails.getPassword().trim().isEmpty()) {
-            // Hash the new password before updating
-            String hashedPassword = BCrypt.withDefaults().hashToString(12, userDetails.getPassword().toCharArray());
-            existingUser.setPassword(hashedPassword);
+            existingUser.setPassword(userDetails.getPassword());
         }
 
         // Update role only if provided
@@ -232,43 +221,5 @@ public class UserServiceImp implements UserService {
     private boolean isValidEmail(String email) {
         String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$";
         return email.matches(emailRegex);
-    }
-
-    /**
-     * Authenticates a user with email and password
-     * Generates JWT token with user role for RBAC
-     *
-     * @param email    User's email
-     * @param password User's password
-     * @return LoginResponse with JWT token and user info
-     * @throws ResourceNotFoundException if user not found
-     * @throws BusinessException         if credentials are invalid
-     */
-    @Override
-    public LoginResponse login(String email, String password) {
-        // Validate inputs
-        if (email == null || email.trim().isEmpty()) {
-            throw new BusinessException("Email is required");
-        }
-        if (password == null || password.trim().isEmpty()) {
-            throw new BusinessException("Password is required");
-        }
-
-        // Find user by email
-        User user = userRepository.findByEmail(email.trim().toLowerCase())
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
-
-        // Verify password with BCrypt
-        BCrypt.Result result = BCrypt.verifyer()
-                .verify(password.toCharArray(), user.getPassword());
-        if (!result.verified) {
-            throw new BusinessException("Invalid credentials");
-        }
-
-        // Generate JWT token with user role
-        String token = jwtUtil.generateToken(user);
-        UserResponse userResponse = UserMapper.toUserResponse(user);
-
-        return new LoginResponse(token, userResponse);
     }
 }

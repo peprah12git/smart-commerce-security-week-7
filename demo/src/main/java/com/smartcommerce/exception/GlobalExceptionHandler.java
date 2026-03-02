@@ -174,42 +174,6 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles authentication failures (missing/invalid token)
-     */
-    @ExceptionHandler(com.smartcommerce.exception.AuthenticationException.class)
-    public ResponseEntity<ErrorResponse> handleAuthenticationException(
-            com.smartcommerce.exception.AuthenticationException ex, jakarta.servlet.http.HttpServletRequest request) {
-
-        ErrorResponse response = ErrorResponse.builder()
-                .status(org.springframework.http.HttpStatus.UNAUTHORIZED.value())
-                .error("Unauthorized")
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .timestamp(java.time.LocalDateTime.now())
-                .build();
-
-        return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body(response);
-    }
-
-    /**
-     * Handles access denied (insufficient privileges)
-     */
-    @ExceptionHandler(com.smartcommerce.exception.AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDeniedException(
-            com.smartcommerce.exception.AccessDeniedException ex, jakarta.servlet.http.HttpServletRequest request) {
-
-        ErrorResponse response = ErrorResponse.builder()
-                .status(org.springframework.http.HttpStatus.FORBIDDEN.value())
-                .error("Forbidden")
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .timestamp(java.time.LocalDateTime.now())
-                .build();
-
-        return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(response);
-    }
-
-    /**
      * Fallback handler for any unhandled exceptions.
      */
     @ExceptionHandler(Exception.class)
