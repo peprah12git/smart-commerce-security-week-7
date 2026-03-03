@@ -1,6 +1,8 @@
 package com.smartcommerce.controller.restControllers;
 
-import com.smartcommerce.dtos.request.CreateUserDTO;
+import com.smartcommerce.dtos.request.LoginRequestDTO;
+import com.smartcommerce.dtos.request.RegisterRequestDTO;
+import com.smartcommerce.dtos.response.LoginResponseDTO;
 import com.smartcommerce.dtos.response.UserResponse;
 import com.smartcommerce.exception.ErrorResponse;
 import com.smartcommerce.exception.ValidationErrorResponse;
@@ -16,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,10 +31,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+    private final PasswordEncoder passwordEncoder;
 
     // Manual constructor for compatibility
-    public UserController(UserService userService) {
+    public UserController(UserService userService, PasswordEncoder passwordEncoder) {
         this.userService = userService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Operation(summary = "Register a new user", description = "Creates a new user account with the provided details")
@@ -46,7 +51,7 @@ public class UserController {
     // Endpoint to register a new user
     @PostMapping
     public ResponseEntity<UserResponse> addUser(
-            @Valid @RequestBody CreateUserDTO createUserDTO
+            @Valid @RequestBody RegisterRequestDTO createUserDTO
     ) {
         User userToCreate = new User(
                 createUserDTO.name(),
@@ -55,11 +60,36 @@ public class UserController {
                 createUserDTO.phone(),
                 createUserDTO.address()
         );
-        User user = userService.createUser(userToCreate);
+        User user = userService.registration(userToCreate);
         UserResponse response = UserMapper.toUserResponse(user);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    @Operation(summary = "User login", description = "Authenticates user with email and password")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Login successful",
+                    content = @Content(schema = @Schema(implementation = LoginResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO loginRequest) {
+        User user = userService.getUserByEmail(loginRequest.email());
+        
+        if (!passwordEncoder.matches(loginRequest.password(), user.getPassword())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        LoginResponseDTO response = new LoginResponseDTO(
+                user.getUserId(),
+                user.getName(),
+                user.getEmail(),
+                user.getRole().name(),
+                "Login successful"
+        );
+        return ResponseEntity.ok(response);
     }
 
 }

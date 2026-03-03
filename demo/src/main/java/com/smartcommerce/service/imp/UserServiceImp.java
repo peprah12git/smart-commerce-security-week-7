@@ -2,10 +2,13 @@ package com.smartcommerce.service.imp;
 
 import java.util.List;
 
+import com.smartcommerce.model.UserRole;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,35 +32,37 @@ public class UserServiceImp implements UserService {
 
     private UserRepository userRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     /**
      * Creates a new user
-     *
-     * @param user User object to create
+     * @param request User object to create
      * @return Created user
      * @throws DuplicateResourceException if email already exists
      * @throws BusinessException          if user creation fails
      */
     @Override
     @Caching(evict = {
-        @CacheEvict(value = "users", allEntries = true),
-        @CacheEvict(value = "user", key = "#result.userId"),
-        @CacheEvict(value = "userByEmail", key = "#result.email")
+            @CacheEvict(value = "users", allEntries = true),
+            @CacheEvict(value = "user", key = "#result.userId"),
+            @CacheEvict(value = "userByEmail", key = "#result.email")
     })
-    public User createUser(User user) {
-        // Validate input
-        validateUser(user);
-
-        // Check for duplicate email
-        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
-            throw new DuplicateResourceException("User", "email", user.getEmail());
+    public User registration(User request){
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new DuplicateResourceException("User", "email", request.getEmail());
         }
+        User user = new User();
+        //user.setName(request.getName());
+        user.setEmail(request.getEmail());
+        //secure the Password
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+        user.setPassword(encodedPassword);
 
-        // Set default role if not provided
-        if (user.getRole() == null || user.getRole().trim().isEmpty()) {
-            user.setRole("CUSTOMER");
-        }
+        //Assigning default role
+        user.setRole(UserRole.CUSTOMER);
 
-        // Save and return user
+        // Save the user to the database
         return userRepository.save(user);
     }
 
@@ -151,7 +156,7 @@ public class UserServiceImp implements UserService {
         }
 
         // Update role only if provided
-        if (userDetails.getRole() != null && !userDetails.getRole().trim().isEmpty()) {
+        if (userDetails.getRole() != null) {
             existingUser.setRole(userDetails.getRole());
         }
 
@@ -214,7 +219,6 @@ public class UserServiceImp implements UserService {
 
     /**
      * Simple email validation
-     *
      * @param email Email to validate
      * @return true if valid, false otherwise
      */

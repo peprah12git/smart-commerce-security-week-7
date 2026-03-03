@@ -37,8 +37,8 @@ public class User {
     @Column
     private String address;
 
-    @Column(nullable = false)
-    private String role = "USER";
+    @Enumerated(EnumType.STRING)
+    private UserRole role = UserRole.CUSTOMER;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
