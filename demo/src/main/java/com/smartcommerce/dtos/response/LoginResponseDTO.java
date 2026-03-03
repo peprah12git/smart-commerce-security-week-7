@@ -22,6 +22,9 @@ public class LoginResponseDTO {
     @Schema(description = "User role", example = "ADMIN")
     private String role;
 
+    @Schema(description = "Signed JWT token", example = "eyJhbGciOiJIUzI1NiJ9...")
+    private String token;
+
     @Schema(description = "Login message", example = "Login successful")
     private String message;
 }

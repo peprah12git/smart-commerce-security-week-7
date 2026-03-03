@@ -21,6 +21,7 @@ import com.smartcommerce.dtos.response.CartResponse;
 import com.smartcommerce.exception.ErrorResponse;
 import com.smartcommerce.exception.ValidationErrorResponse;
 import com.smartcommerce.model.CartItem;
+import com.smartcommerce.security.SecurityUtils;
 import com.smartcommerce.service.serviceInterface.CartItemService;
 import com.smartcommerce.utils.CartItemMapper;
 
@@ -34,8 +35,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
- * REST Controller for Shopping Cart management
- * Handles HTTP requests for cart CRUD operations
+ * REST Controller for Shopping Cart management.
+ * All endpoints operate on the authenticated user's cart — no userId in the URL.
  * Base URL: /api/carts
  */
 @RestController
@@ -44,210 +45,139 @@ import jakarta.validation.Valid;
 public class CartController {
 
     private final CartItemService cartItemService;
+    private final SecurityUtils securityUtils;
 
-    public CartController(CartItemService cartItemService) {
+    public CartController(CartItemService cartItemService, SecurityUtils securityUtils) {
         this.cartItemService = cartItemService;
+        this.securityUtils = securityUtils;
     }
 
-    /**
-     * Add item to cart
-     * POST /api/cart/items
-     */
-    @Operation(summary = "Add item to cart", description = "Adds a product to the user's cart or updates quantity if already exists")
+    // POST /api/carts/items
+    @Operation(summary = "Add item to cart",
+            description = "Adds a product to the authenticated user's cart, or updates quantity if already present")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Item added to cart successfully",
+            @ApiResponse(responseCode = "201", description = "Item added",
                     content = @Content(schema = @Schema(implementation = CartItemResponse.class))),
             @ApiResponse(responseCode = "400", description = "Validation error or insufficient stock",
                     content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "User or product not found",
+            @ApiResponse(responseCode = "404", description = "Product not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping("/items")
-    public ResponseEntity<CartItemResponse> addToCart(
-            @Valid @RequestBody AddToCartDTO addToCartDTO) {
-
-        CartItem cartItem = cartItemService.addToCart(
-                addToCartDTO.userId(),
-                addToCartDTO.productId(),
-                addToCartDTO.quantity()
-        );
-
-        CartItemResponse response = CartItemMapper.toCartItemResponse(cartItem);
-
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
+    public ResponseEntity<CartItemResponse> addToCart(@Valid @RequestBody AddToCartDTO dto) {
+        int userId = securityUtils.getCurrentUserId();
+        CartItem cartItem = cartItemService.addToCart(userId, dto.productId(), dto.quantity());
+        return ResponseEntity.status(HttpStatus.CREATED).body(CartItemMapper.toCartItemResponse(cartItem));
     }
 
-    /**
-     * Get user's cart with all items and totals
-     * GET /api/cart/user/{userId}
-     */
-    @Operation(summary = "Get user's cart", description = "Retrieves the user's complete cart with all items, count, and total")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cart retrieved successfully",
-                    content = @Content(schema = @Schema(implementation = CartResponse.class))),
-            @ApiResponse(responseCode = "404", description = "User not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<CartResponse> getUserCart(
-            @PathVariable int userId) {
-
-        List<CartItem> cartItems = cartItemService.getCartItemsWithDetails(userId);
-        List<CartItemResponse> itemResponses = CartItemMapper.toCartItemResponseList(cartItems);
-        int itemCount = cartItemService.getCartItemCount(userId);
+    // GET /api/carts/me
+    @Operation(summary = "Get my cart",
+            description = "Returns the authenticated user's complete cart with all items, item count, and total")
+    @ApiResponse(responseCode = "200", description = "Cart retrieved",
+            content = @Content(schema = @Schema(implementation = CartResponse.class)))
+    @GetMapping("/me")
+    public ResponseEntity<CartResponse> getMyCart() {
+        int userId = securityUtils.getCurrentUserId();
+        List<CartItem> items = cartItemService.getCartItemsWithDetails(userId);
+        List<CartItemResponse> itemResponses = CartItemMapper.toCartItemResponseList(items);
+        int count = cartItemService.getCartItemCount(userId);
         BigDecimal total = cartItemService.getCartTotal(userId);
-
-        CartResponse response = new CartResponse(userId, itemResponses, itemCount, total);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new CartResponse(userId, itemResponses, count, total));
     }
 
-    /**
-     * Get all cart items for a user (with product details)
-     * GET /api/cart/user/{userId}/items
-     */
-    @Operation(summary = "Get cart items", description = "Retrieves all items in the user's cart with product details")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cart items retrieved successfully"),
-            @ApiResponse(responseCode = "404", description = "User not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @GetMapping("/user/{userId}/items")
-    public ResponseEntity<List<CartItemResponse>> getCartItems(
-            @PathVariable int userId) {
-
-        List<CartItem> cartItems = cartItemService.getCartItemsWithDetails(userId);
-        List<CartItemResponse> response = CartItemMapper.toCartItemResponseList(cartItems);
-
-        return ResponseEntity.ok(response);
+    // GET /api/carts/me/items
+    @Operation(summary = "Get my cart items",
+            description = "Returns all items in the authenticated user's cart with product details")
+    @ApiResponse(responseCode = "200", description = "Items retrieved")
+    @GetMapping("/me/items")
+    public ResponseEntity<List<CartItemResponse>> getMyCartItems() {
+        int userId = securityUtils.getCurrentUserId();
+        List<CartItem> items = cartItemService.getCartItemsWithDetails(userId);
+        return ResponseEntity.ok(CartItemMapper.toCartItemResponseList(items));
     }
 
-    /**
-     * Get a specific cart item
-     * GET /api/cart/user/{userId}/items/{productId}
-     */
-    @Operation(summary = "Get specific cart item", description = "Retrieves a specific item from the user's cart")
+    // GET /api/carts/me/items/{productId}
+    @Operation(summary = "Get specific cart item",
+            description = "Retrieves a specific product from the authenticated user's cart")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cart item retrieved successfully",
+            @ApiResponse(responseCode = "200", description = "Item retrieved",
                     content = @Content(schema = @Schema(implementation = CartItemResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Cart item not found",
+            @ApiResponse(responseCode = "404", description = "Item not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @GetMapping("/user/{userId}/items/{productId}")
-    public ResponseEntity<CartItemResponse> getCartItem(
-            @PathVariable int userId,
+    @GetMapping("/me/items/{productId}")
+    public ResponseEntity<CartItemResponse> getMyCartItem(
             @Parameter(description = "Product ID", required = true, example = "5")
             @PathVariable int productId) {
-
-        CartItem cartItem = cartItemService.getCartItem(userId, productId);
-        CartItemResponse response = CartItemMapper.toCartItemResponse(cartItem);
-
-        return ResponseEntity.ok(response);
+        int userId = securityUtils.getCurrentUserId();
+        return ResponseEntity.ok(CartItemMapper.toCartItemResponse(cartItemService.getCartItem(userId, productId)));
     }
 
-    /**
-     * Update cart item quantity
-     * PUT /api/cart/user/{userId}/items/{productId}
-     */
-    @Operation(summary = "Update cart item quantity", description = "Updates the quantity of a specific item in the cart")
+    // PUT /api/carts/me/items/{productId}
+    @Operation(summary = "Update cart item quantity",
+            description = "Updates the quantity of a specific item in the authenticated user's cart")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cart item updated successfully",
+            @ApiResponse(responseCode = "200", description = "Quantity updated",
                     content = @Content(schema = @Schema(implementation = CartItemResponse.class))),
             @ApiResponse(responseCode = "400", description = "Validation error or insufficient stock",
                     content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Cart item not found",
+            @ApiResponse(responseCode = "404", description = "Item not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @PutMapping("/user/{userId}/items/{productId}")
+    @PutMapping("/me/items/{productId}")
     public ResponseEntity<CartItemResponse> updateCartItemQuantity(
-            @PathVariable int userId,
             @Parameter(description = "Product ID", required = true, example = "5")
             @PathVariable int productId,
             @Valid @RequestBody UpdateCartItemDTO updateDTO) {
-
-        CartItem updatedItem = cartItemService.updateQuantity(userId, productId, updateDTO.quantity());
-        CartItemResponse response = CartItemMapper.toCartItemResponse(updatedItem);
-
-        return ResponseEntity.ok(response);
+        int userId = securityUtils.getCurrentUserId();
+        CartItem updated = cartItemService.updateQuantity(userId, productId, updateDTO.quantity());
+        return ResponseEntity.ok(CartItemMapper.toCartItemResponse(updated));
     }
 
-    /**
-     * Remove item from cart
-     * DELETE /api/cart/user/{userId}/items/{productId}
-     */
-    @Operation(summary = "Remove item from cart", description = "Removes a specific item from the user's cart")
+    // DELETE /api/carts/me/items/{productId}
+    @Operation(summary = "Remove item from cart",
+            description = "Removes a specific item from the authenticated user's cart")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Item removed from cart successfully"),
-            @ApiResponse(responseCode = "404", description = "Cart item not found",
+            @ApiResponse(responseCode = "204", description = "Item removed"),
+            @ApiResponse(responseCode = "404", description = "Item not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @DeleteMapping("/user/{userId}/items/{productId}")
+    @DeleteMapping("/me/items/{productId}")
     public ResponseEntity<Void> removeFromCart(
-            @PathVariable int userId,
             @Parameter(description = "Product ID", required = true, example = "5")
             @PathVariable int productId) {
-
+        int userId = securityUtils.getCurrentUserId();
         cartItemService.removeFromCart(userId, productId);
-
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Clear user's cart
-     * DELETE /api/cart/user/{userId}
-     */
-    @Operation(summary = "Clear cart", description = "Removes all items from the user's cart")
-    @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Cart cleared successfully"),
-            @ApiResponse(responseCode = "404", description = "User not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @DeleteMapping("/user/{userId}")
-    public ResponseEntity<Void> clearCart(
-            @PathVariable int userId) {
-
+    // DELETE /api/carts/me
+    @Operation(summary = "Clear cart", description = "Removes all items from the authenticated user's cart")
+    @ApiResponse(responseCode = "204", description = "Cart cleared")
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> clearCart() {
+        int userId = securityUtils.getCurrentUserId();
         cartItemService.clearCart(userId);
-
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Get cart item count
-     * GET /api/cart/user/{userId}/count
-     */
-    @Operation(summary = "Get cart item count", description = "Returns the number of items in the user's cart")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Count retrieved successfully"),
-            @ApiResponse(responseCode = "404", description = "User not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @GetMapping("/user/{userId}/count")
-    public ResponseEntity<Integer> getCartItemCount(
-            @PathVariable int userId) {
-
-        int count = cartItemService.getCartItemCount(userId);
-
-        return ResponseEntity.ok(count);
+    // GET /api/carts/me/count
+    @Operation(summary = "Get cart item count",
+            description = "Returns the number of distinct items in the authenticated user's cart")
+    @ApiResponse(responseCode = "200", description = "Count retrieved")
+    @GetMapping("/me/count")
+    public ResponseEntity<Integer> getCartItemCount() {
+        int userId = securityUtils.getCurrentUserId();
+        return ResponseEntity.ok(cartItemService.getCartItemCount(userId));
     }
 
-    /**
-     * Get cart total
-     * GET /api/cart/user/{userId}/total
-     */
-    @Operation(summary = "Get cart total", description = "Returns the total value of the user's cart")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Total retrieved successfully"),
-            @ApiResponse(responseCode = "404", description = "User not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @GetMapping("/user/{userId}/total")
-    public ResponseEntity<BigDecimal> getCartTotal(
-            @PathVariable int userId) {
-
-        BigDecimal total = cartItemService.getCartTotal(userId);
-
-        return ResponseEntity.ok(total);
+    // GET /api/carts/me/total
+    @Operation(summary = "Get cart total",
+            description = "Returns the total value of the authenticated user's cart")
+    @ApiResponse(responseCode = "200", description = "Total retrieved")
+    @GetMapping("/me/total")
+    public ResponseEntity<BigDecimal> getCartTotal() {
+        int userId = securityUtils.getCurrentUserId();
+        return ResponseEntity.ok(cartItemService.getCartTotal(userId));
     }
 }

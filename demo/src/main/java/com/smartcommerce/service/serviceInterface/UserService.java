@@ -78,4 +78,15 @@ public interface UserService {
      * @throws BusinessException         if deletion fails
      */
     void deleteUser(int userId);
+
+    /**
+     * Authenticates user with email and password
+     *
+     * @param email User email
+     * @param password User password
+     * @return Authenticated User
+     * @throws ResourceNotFoundException if user not found
+     * @throws BusinessException if credentials are invalid
+     */
+    User login(String email, String password);
 }

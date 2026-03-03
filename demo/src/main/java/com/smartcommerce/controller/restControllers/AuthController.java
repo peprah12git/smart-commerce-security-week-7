@@ -1,6 +1,5 @@
 package com.smartcommerce.controller.restControllers;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -9,10 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.smartcommerce.dtos.request.LoginRequestDTO;
-import com.smartcommerce.dtos.request.RegisterRequestDTO;
 import com.smartcommerce.dtos.response.LoginResponseDTO;
 import com.smartcommerce.exception.ErrorResponse;
-import com.smartcommerce.exception.ValidationErrorResponse;
 import com.smartcommerce.model.User;
 import com.smartcommerce.security.CustomUserDetailsService;
 import com.smartcommerce.security.JwtTokenService;
@@ -26,17 +23,16 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
-// REST Controller for User management
 @RestController
-@RequestMapping("/api/users")
-@Tag(name = "Users", description = "User management API — registration and account operations")
-public class UserController {
+@RequestMapping("/api/auth")
+@Tag(name = "Auth", description = "Authentication API — login and token generation")
+public class AuthController {
 
     private final UserService userService;
     private final JwtTokenService jwtTokenService;
     private final CustomUserDetailsService customUserDetailsService;
 
-    public UserController(UserService userService,
+    public AuthController(UserService userService,
                           JwtTokenService jwtTokenService,
                           CustomUserDetailsService customUserDetailsService) {
         this.userService = userService;
@@ -44,44 +40,7 @@ public class UserController {
         this.customUserDetailsService = customUserDetailsService;
     }
 
-    @Operation(summary = "Register a new user", description = "Creates a new user account and returns a signed JWT token")
-    @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "User registered successfully — JWT token returned",
-                    content = @Content(schema = @Schema(implementation = LoginResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Validation error",
-                    content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Email already exists",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @PostMapping
-    public ResponseEntity<LoginResponseDTO> addUser(
-            @Valid @RequestBody RegisterRequestDTO createUserDTO
-    ) {
-        User userToCreate = new User(
-                createUserDTO.name(),
-                createUserDTO.email(),
-                createUserDTO.password(),
-                createUserDTO.phone(),
-                createUserDTO.address()
-        );
-        User user = userService.registration(userToCreate);
-
-        // Auto-issue a JWT token on successful registration
-        UserDetails userDetails = customUserDetailsService.loadUserByUsername(user.getEmail());
-        String token = jwtTokenService.generateToken(userDetails);
-
-        LoginResponseDTO response = new LoginResponseDTO(
-                user.getUserId(),
-                user.getName(),
-                user.getEmail(),
-                user.getRole().name(),
-                token,
-                "Registration successful"
-        );
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @Operation(summary = "User login", description = "Authenticates user with email and password and returns a signed JWT token")
+    @Operation(summary = "Login", description = "Authenticates user and returns a signed JWT token")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Login successful — JWT token returned",
                     content = @Content(schema = @Schema(implementation = LoginResponseDTO.class))),
@@ -90,13 +49,16 @@ public class UserController {
     })
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO loginRequest) {
-        // 1. Authenticate (throws BadCredentialsException on failure)
+        // 1. Authenticate via AuthenticationManager (throws on bad credentials)
         User user = userService.login(loginRequest.email(), loginRequest.password());
 
-        // 2. Load UserDetails and generate signed JWT
+        // 2. Load UserDetails (needed by JwtTokenService to build the token)
         UserDetails userDetails = customUserDetailsService.loadUserByUsername(user.getEmail());
+
+        // 3. Generate signed JWT containing username, roles, and expiry
         String token = jwtTokenService.generateToken(userDetails);
 
+        // 4. Build response with token
         LoginResponseDTO response = new LoginResponseDTO(
                 user.getUserId(),
                 user.getName(),
@@ -105,7 +67,7 @@ public class UserController {
                 token,
                 "Login successful"
         );
+
         return ResponseEntity.ok(response);
     }
-
 }

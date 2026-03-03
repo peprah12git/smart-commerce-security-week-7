@@ -2,12 +2,12 @@ package com.smartcommerce.service.imp;
 
 import java.util.List;
 
-import com.smartcommerce.model.UserRole;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +16,7 @@ import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.DuplicateResourceException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.User;
+import com.smartcommerce.model.UserRole;
 import com.smartcommerce.repositories.UserRepository;
 import com.smartcommerce.service.serviceInterface.UserService;
 
@@ -30,10 +31,9 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class UserServiceImp implements UserService {
 
-    private UserRepository userRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
 
     /**
      * Creates a new user
@@ -225,5 +225,15 @@ public class UserServiceImp implements UserService {
     private boolean isValidEmail(String email) {
         String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$";
         return email.matches(emailRegex);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public User login(String email, String password) {
+        authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(email, password)
+        );
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
     }
 }
