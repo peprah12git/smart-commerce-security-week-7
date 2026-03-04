@@ -2,6 +2,7 @@ package com.smartcommerce.controller.restControllers;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -56,6 +57,7 @@ public class CategoryController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<Category> createCategory(
             @Valid @RequestBody CreateCategoryDTO createCategoryDTO) {
@@ -87,6 +89,7 @@ public class CategoryController {
             @ApiResponse(responseCode = "409", description = "Category name already exists",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<Category> updateCategory(
             @Parameter(description = "Category ID to update", required = true, example = "1")
@@ -112,6 +115,7 @@ public class CategoryController {
             @ApiResponse(responseCode = "404", description = "Category not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCategory(
             @Parameter(description = "Category ID to delete", required = true, example = "1")

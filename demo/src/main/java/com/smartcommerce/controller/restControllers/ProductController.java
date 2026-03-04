@@ -9,6 +9,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -74,6 +75,7 @@ public class ProductController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<ProductResponse> createProduct(
             @Valid @RequestBody CreateProductDTO createProductDTO) {
@@ -292,6 +294,7 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product or category not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<ProductResponse> updateProduct(
             @Parameter(description = "Product ID to update", required = true, example = "1")
@@ -319,6 +322,7 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProduct(
             @Parameter(description = "Product ID to delete", required = true, example = "1")
@@ -333,6 +337,7 @@ public class ProductController {
      */
     @Operation(summary = "Clear product cache", description = "Clears the product cache to force fresh data retrieval")
     @ApiResponse(responseCode = "204", description = "Cache cleared successfully")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/cache")
     public ResponseEntity<Void> clearProductCache() {
         productService.invalidateProductCache();

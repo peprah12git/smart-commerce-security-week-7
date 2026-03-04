@@ -18,15 +18,19 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 public class SecurityConfig {
 
     private final JWTAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final OAuthLoginSuccesshandler oAuthLoginSuccesshandler;
 
     public SecurityConfig(JWTAuthenticationFilter jwtAuthenticationFilter,
-                          JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
+                          JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
+                          OAuthLoginSuccesshandler oAuthLoginSuccesshandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+        this.oAuthLoginSuccesshandler = oAuthLoginSuccesshandler;
     }
 
     @Bean
@@ -34,7 +38,8 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // IF_REQUIRED: JWT endpoints are stateless; OAuth2 code flow needs a brief session for the state param
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
 
                         // ── Public: auth & registration ──────────────────────────────────
@@ -71,6 +76,7 @@ public class SecurityConfig {
                         // ── Everything else requires a valid JWT ──────────────────────────
                         .anyRequest().authenticated()
                 )
+                .oauth2Login(oauth2 -> oauth2.successHandler(oAuthLoginSuccesshandler))
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

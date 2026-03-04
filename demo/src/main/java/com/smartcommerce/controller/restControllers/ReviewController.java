@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,6 +41,7 @@ public class ReviewController {
 
     @Operation(summary = "Create a new review",
             description = "Submits a review for a product. The reviewer is the authenticated user.")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
     @PostMapping
     public ResponseEntity<Review> createReview(
             @Valid @RequestBody CreateReviewDTO dto) {
@@ -71,6 +73,7 @@ public class ReviewController {
 
     @Operation(summary = "Get my reviews",
             description = "Retrieves all reviews submitted by the authenticated user")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     public ResponseEntity<List<Review>> getMyReviews() {
         int userId = securityUtils.getCurrentUserId();
@@ -94,6 +97,7 @@ public class ReviewController {
     }
 
     @Operation(summary = "Update a review")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF', 'ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<Review> updateReview(
             @PathVariable int id,
@@ -103,6 +107,7 @@ public class ReviewController {
     }
 
     @Operation(summary = "Delete a review")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteReview(@PathVariable int id) {
         reviewService.deleteReview(id);

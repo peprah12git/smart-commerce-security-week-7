@@ -2,7 +2,8 @@ package com.smartcommerce.model;
 
 public enum UserRole {
     CUSTOMER("ROLE_CUSTOMER"),
-    ADMIN("ROLE_ADMIN");
+    ADMIN("ROLE_ADMIN"),
+    STAFF("ROLE_STAFF");
 
     private final String value;
 
