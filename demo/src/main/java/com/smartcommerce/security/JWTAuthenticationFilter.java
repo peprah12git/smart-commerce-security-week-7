@@ -2,24 +2,57 @@ package com.smartcommerce.security;
 
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.smartcommerce.security.audit.LoginAttemptService;
+import com.smartcommerce.security.audit.SecurityAuditService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+/**
+ * Executes once per request and gates every protected endpoint.
+ *
+ * Token validation pipeline (all steps are O(1)):
+ *   1. Extract raw JWT from the Authorization: Bearer <token> header.
+ *   2. Delegate to JwtTokenService.validateToken(), which runs:
+ *        a. HMAC-SHA256 signature verification       ← hashing
+ *        b. Expiry timestamp comparison              ← O(1) integer compare
+ *        c. Blacklist lookup in ConcurrentHashMap    ← O(1) HashMap.containsKey
+ *   3. Load UserDetails and store authentication in the SecurityContext.
+ *
+ * Audit events emitted:
+ *   • JWT_VALIDATION_FAILURE — token present but invalid (signature, expiry)
+ *   • REVOKED_TOKEN_REUSE    — token is specifically in the blacklist
+ *   • HIGH_FREQUENCY_REQUEST — IP has exceeded the per-minute rate limit
+ */
 @Component
 public class JWTAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(JWTAuthenticationFilter.class);
+
     private final JwtTokenService jwtTokenService;
     private final CustomUserDetailsService customUserDetailsService;
+    private final SecurityAuditService auditService;
+    private final LoginAttemptService loginAttemptService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     public JWTAuthenticationFilter(JwtTokenService jwtTokenService,
-                                    CustomUserDetailsService customUserDetailsService) {
-        this.jwtTokenService = jwtTokenService;
+                                    CustomUserDetailsService customUserDetailsService,
+                                    SecurityAuditService auditService,
+                                    LoginAttemptService loginAttemptService,
+                                    TokenBlacklistService tokenBlacklistService) {
+        this.jwtTokenService        = jwtTokenService;
         this.customUserDetailsService = customUserDetailsService;
+        this.auditService           = auditService;
+        this.loginAttemptService    = loginAttemptService;
+        this.tokenBlacklistService  = tokenBlacklistService;
     }
 
     @Override
@@ -28,16 +61,55 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
         try {
+            // ── Rate-limit check ─────────────────────────────────────────────
+            boolean rateLimitBreached = auditService.trackRequest(request);
+            if (rateLimitBreached) {
+                String ip = SecurityAuditService.resolveClientIp(request);
+                auditService.highFrequencyRequest(ip, request, auditService.ipHits(ip));
+            }
+
             String token = getJwtFromRequest(request);
-            if (token != null && jwtTokenService.validateToken(token)) {
-                String email = jwtTokenService.getEmailFromToken(token);
-                var userDetails = customUserDetailsService.loadUserByUsername(email);
-                var authentication = new JWTAuthenticationToken(userDetails, token, userDetails.getAuthorities());
-                org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            if (token != null) {
+                // ── Revoked-token reuse detection (O(1) blacklist check) ──────
+                if (tokenBlacklistService.isRevoked(token)) {
+                    String username = tryExtractUsername(token);
+                    auditService.revokedTokenReuse(username, request);
+                    // Do NOT populate SecurityContext — let the request fail as 401
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                // ── Full validation (signature + expiry + blacklist) ──────────
+                if (jwtTokenService.validateToken(token)) {
+                    String email = jwtTokenService.getEmailFromToken(token);
+
+                    // Brute-force soft-lock check — reject even valid JWTs while
+                    // the account is locked to prevent token-based bypass.
+                    if (loginAttemptService.isBlocked(email)) {
+                        auditService.jwtValidationFailure(request,
+                                "Account soft-locked due to repeated failed attempts — username=" + email);
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+
+                    var userDetails    = customUserDetailsService.loadUserByUsername(email);
+                    var authentication = new JWTAuthenticationToken(
+                            userDetails, token, userDetails.getAuthorities());
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                } else {
+                    // Token present but failed validation
+                    auditService.jwtValidationFailure(request,
+                            "Token failed signature/expiry validation");
+                }
             }
         } catch (Exception ex) {
-            System.out.println("Could not set user authentication in security context: " + ex.getMessage());
+            SecurityContextHolder.clearContext();
+            log.warn("[AUDIT] JWT filter exception uri={} error={}",
+                    request.getRequestURI(), ex.getMessage());
         }
+
         filterChain.doFilter(request, response);
     }
 
@@ -47,5 +119,14 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
         return null;
+    }
+
+    /** Best-effort username extraction (token may be invalid — swallow exceptions). */
+    private String tryExtractUsername(String token) {
+        try {
+            return jwtTokenService.getEmailFromToken(token);
+        } catch (Exception e) {
+            return "unknown";
+        }
     }
 }

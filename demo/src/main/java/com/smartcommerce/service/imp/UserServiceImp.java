@@ -55,7 +55,10 @@ public class UserServiceImp implements UserService {
         User user = new User();
         //user.setName(request.getName());
         user.setEmail(request.getEmail());
-        //secure the Password
+        // DSA Principle: BCrypt hashing (adaptive cost, salted)
+        // passwordEncoder.encode() runs bcrypt KDF with 2^10 iterations + random salt.
+        // The resulting 60-char string is safe to store; the raw password is never persisted.
+        // Time complexity: O(1) — independent of dataset size, bounded by work factor.
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         user.setPassword(encodedPassword);
 
