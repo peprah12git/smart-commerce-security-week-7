@@ -1,99 +1,32 @@
 package com.smartcommerce.controller.restControllers;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.smartcommerce.dtos.request.LoginRequestDTO;
-import com.smartcommerce.dtos.request.RegisterRequestDTO;
-import com.smartcommerce.dtos.response.LoginResponseDTO;
-import com.smartcommerce.exception.ErrorResponse;
-import com.smartcommerce.exception.ValidationErrorResponse;
-import com.smartcommerce.model.User;
-import com.smartcommerce.security.CustomUserDetailsService;
-import com.smartcommerce.security.JwtTokenService;
-import com.smartcommerce.service.serviceInterface.UserService;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 
-// REST Controller for User management
+/**
+ * REST Controller for authenticated user profile management.
+ * Base URL: /api/users
+ *
+ * Registration and login are handled by AuthController at /api/auth/register and /api/auth/login.
+ */
 @RestController
 @RequestMapping("/api/users")
-@Tag(name = "Users", description = "User management API — registration and account operations")
+@PreAuthorize("isA
+@Tag(name = "Users", description = "User profile management  view and update your own account")
 public class UserController {
-
-    private final UserService userService;
-    private final JwtTokenService jwtTokenService;
-    private final CustomUserDetailsService customUserDetailsService;
-
-    public UserController(UserService userService,
-                          JwtTokenService jwtTokenService,
-                          CustomUserDetailsService customUserDetailsService) {
-        this.userService = userService;
-        this.jwtTokenService = jwtTokenService;
-        this.customUserDetailsService = customUserDetailsService;
+    // Profile endpoints (get my profile, update profile, change password, etc.)
+    // will be added here.
+}
+                "Login successful"
+        );
+        return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Register a new user", description = "Creates a new user account and returns a signed JWT token")
-    @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "User registered successfully — JWT token returned",
-                    content = @Content(schema = @Schema(implementation = LoginResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Validation error",
-                    content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Email already exists",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @PostMapping
-    public ResponseEntity<LoginResponseDTO> addUser(
-            @Valid @RequestBody RegisterRequestDTO createUserDTO
-    ) {
-        User userToCreate = new User(
-                createUserDTO.name(),
-                createUserDTO.email(),
-                createUserDTO.password(),
-                createUserDTO.phone(),
-                createUserDTO.address()
-        );
-        User user = userService.registration(userToCreate);
+}
 
-        // Auto-issue a JWT token on successful registration
-        UserDetails userDetails = customUserDetailsService.loadUserByUsername(user.getEmail());
-        String token = jwtTokenService.generateToken(userDetails);
-
-        LoginResponseDTO response = new LoginResponseDTO(
-                user.getUserId(),
-                user.getName(),
-                user.getEmail(),
-                user.getRole().name(),
-                token,
-                "Registration successful"
-        );
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @Operation(summary = "User login", description = "Authenticates user with email and password and returns a signed JWT token")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Login successful — JWT token returned",
-                    content = @Content(schema = @Schema(implementation = LoginResponseDTO.class))),
-            @ApiResponse(responseCode = "401", description = "Invalid credentials",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @PostMapping("/login")
-    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO loginRequest) {
-        // 1. Authenticate (throws BadCredentialsException on failure)
-        User user = userService.login(loginRequest.email(), loginRequest.password());
-
-        // 2. Load UserDetails and generate signed JWT
         UserDetails userDetails = customUserDetailsService.loadUserByUsername(user.getEmail());
         String token = jwtTokenService.generateToken(userDetails);
 

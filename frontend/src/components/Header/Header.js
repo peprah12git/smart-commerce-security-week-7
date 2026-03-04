@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Search, User, Menu, ShoppingCart, LogOut } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import UserService from '../../services/userService';
 import './Header.css';
 
 const Header = () => {
@@ -32,11 +33,8 @@ const Header = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUser');
+  const handleLogout = async () => {
+    await UserService.logout(); // revokes JWT server-side + clears localStorage
     setUser(null);
     setShowUserMenu(false);
     showNotification('Successfully logged out', 'info');

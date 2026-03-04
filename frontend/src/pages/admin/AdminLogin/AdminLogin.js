@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
+import UserService from '../../../services/userService';
 import './AdminLogin.css';
 
 const AdminLogin = () => {
@@ -33,30 +34,21 @@ const AdminLogin = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8080/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, password: formData.password })
-      });
+      // Uses /api/auth/login — includes brute-force protection
+      const data = await UserService.login(formData.email, formData.password);
+      const userObj = UserService.parseUserFromResponse(data);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Invalid admin credentials');
-      }
-
-      const data = await response.json();
-      
-      if (data.user.role !== 'ADMIN') {
+      if (userObj.role !== 'ADMIN') {
         throw new Error('Access denied. Admin privileges required.');
       }
-      
+
       localStorage.setItem('adminToken', data.token);
-      localStorage.setItem('adminUser', JSON.stringify(data.user));
-      setUser(data.user);
+      localStorage.setItem('adminUser', JSON.stringify(userObj));
+      setUser(userObj);
       showNotification('Admin login successful', 'success');
       navigate('/admin');
     } catch (error) {
-      setErrors({ submit: error.message || 'Login failed' });
+      setErrors({ submit: error.response?.data?.message || error.message || 'Login failed' });
     } finally {
       setLoading(false);
     }

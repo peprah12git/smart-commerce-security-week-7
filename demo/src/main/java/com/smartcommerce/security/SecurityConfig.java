@@ -102,6 +102,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
+                        .requestMatchers("/graphql").permitAll()
 
                         // ── Admin only: inventory ─────────────────────────────────────────
                         .requestMatchers("/api/inventory/**").hasAuthority("ROLE_ADMIN")

@@ -90,19 +90,6 @@ public class ProductController {
                 .body(response);
     }
 
-//    /**
-//     * Get all products (without pagination)
-//     * GET /api/products/all
-//     */
-//    @Operation(summary = "Get all products", description = "Retrieves all products without pagination")
-//    @ApiResponse(responseCode = "200", description = "Products retrieved successfully")
-//    @GetMapping("/all")
-//    public ResponseEntity<List<ProductResponse>> getAllProducts() {
-//        List<Product> products = productService.getAllProducts();
-//        List<ProductResponse> response = ProductMapper.toProductResponseList(products);
-//        return ResponseEntity.ok(response);
-//    }
-
     /**
      * Get products with pagination, sorting and filtering
      * GET /api/products/paged?page=0&size=10&sort=productName,asc&category=Electronics&minPrice=100&maxPrice=1000&searchTerm=phone&inStock=true

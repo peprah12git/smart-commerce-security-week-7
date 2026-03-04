@@ -53,8 +53,10 @@ public class UserServiceImp implements UserService {
             throw new DuplicateResourceException("User", "email", request.getEmail());
         }
         User user = new User();
-        //user.setName(request.getName());
+        user.setName(request.getName());
         user.setEmail(request.getEmail());
+        user.setPhone(request.getPhone());
+        user.setAddress(request.getAddress());
         // DSA Principle: BCrypt hashing (adaptive cost, salted)
         // passwordEncoder.encode() runs bcrypt KDF with 2^10 iterations + random salt.
         // The resulting 60-char string is safe to store; the raw password is never persisted.
