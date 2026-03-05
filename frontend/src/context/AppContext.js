@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import CategoryService from '../services/categoryService';
+import UserService from '../services/userService';
 
 const AppContext = createContext();
 
@@ -16,9 +17,12 @@ export const AppProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
   const [user, setUser] = useState(() => {
-    // Initialize user from localStorage if exists
-    const savedUser = localStorage.getItem('adminUser');
-    return savedUser ? JSON.parse(savedUser) : null;
+    // Check client user first, then admin user
+    const clientUser = localStorage.getItem('user');
+    if (clientUser) return JSON.parse(clientUser);
+    const adminUser = localStorage.getItem('adminUser');
+    if (adminUser) return JSON.parse(adminUser);
+    return null;
   });
 
   useEffect(() => {
@@ -41,10 +45,9 @@ export const AppProvider = ({ children }) => {
     setTimeout(() => setNotification(null), 5000);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await UserService.logout(); // revokes token server-side + clears localStorage
     setUser(null);
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUser');
   };
 
   const value = {

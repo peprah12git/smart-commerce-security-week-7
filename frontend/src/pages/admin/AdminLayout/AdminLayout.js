@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../../context/AppContext';
+import UserService from '../../../services/userService';
 import {
   LayoutDashboard,
   Package,
@@ -58,11 +59,8 @@ const AdminLayout = () => {
     return location.pathname.startsWith(path);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUser');
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const handleLogout = async () => {
+    await UserService.logout(); // revokes JWT server-side + clears localStorage
     showNotification('Successfully logged out', 'info');
     navigate('/login');
   };

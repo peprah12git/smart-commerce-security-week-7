@@ -26,7 +26,7 @@ const Cart = () => {
   const fetchCart = async () => {
     setLoading(true);
     try {
-      const data = await CartService.getCart(userId);
+      const data = await CartService.getCart();
       setCart(data);
     } catch (error) {
       console.error('Failed to fetch cart:', error);
@@ -41,7 +41,7 @@ const Cart = () => {
     
     setUpdating(true);
     try {
-      await CartService.updateQuantity(userId, productId, newQuantity);
+      await CartService.updateQuantity(productId, newQuantity);
       await fetchCart();
       showNotification('Cart updated', 'success');
     } catch (error) {
@@ -55,7 +55,7 @@ const Cart = () => {
   const handleRemoveItem = async (productId) => {
     setUpdating(true);
     try {
-      await CartService.removeFromCart(userId, productId);
+      await CartService.removeFromCart(productId);
       await fetchCart();
       showNotification('Item removed from cart', 'success');
     } catch (error) {
@@ -69,7 +69,7 @@ const Cart = () => {
   const handleClearCart = async () => {
     setUpdating(true);
     try {
-      await CartService.clearCart(userId);
+      await CartService.clearCart();
       await fetchCart();
       showNotification('Cart cleared', 'success');
     } catch (error) {

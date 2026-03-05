@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +43,7 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/inventory")
 @Tag(name = "Inventory", description = "Inventory management API")
+@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 public class InventoryController {
 
     private final InventoryServiceInterface inventoryService;
@@ -140,11 +142,11 @@ public class InventoryController {
 
     /**
      * Check if product is in stock
-     * GET /api/inventory/{productId}/check
+     * GET /api/inventory/{productId}/availability
      */
     @Operation(summary = "Check if product is in stock", description = "Checks if a product has available stock")
     @ApiResponse(responseCode = "200", description = "Stock status retrieved")
-    @GetMapping("/{productId}/check")
+    @GetMapping("/{productId}/availability")
     public ResponseEntity<Boolean> checkStock(
             @Parameter(description = "Product ID", required = true, example = "1")
             @PathVariable int productId) {

@@ -16,3 +16,4 @@ server:
 spring:
   jpa:
     show-sql: false
+

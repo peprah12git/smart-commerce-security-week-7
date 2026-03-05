@@ -8,14 +8,15 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.smartcommerce.dtos.request.CreateOrderDTO;
@@ -27,6 +28,7 @@ import com.smartcommerce.exception.ErrorResponse;
 import com.smartcommerce.exception.ValidationErrorResponse;
 import com.smartcommerce.model.Order;
 import com.smartcommerce.model.OrderItem;
+import com.smartcommerce.security.SecurityUtils;
 import com.smartcommerce.service.serviceInterface.OrderService;
 import com.smartcommerce.utils.OrderMapper;
 
@@ -50,9 +52,11 @@ import jakarta.validation.Valid;
 public class OrderController {
 
         private final OrderService orderService;
+        private final SecurityUtils securityUtils;
 
-        public OrderController(OrderService orderService) {
+        public OrderController(OrderService orderService, SecurityUtils securityUtils) {
                 this.orderService = orderService;
+                this.securityUtils = securityUtils;
         }
 
         /**
@@ -65,26 +69,33 @@ public class OrderController {
                         @ApiResponse(responseCode = "400", description = "Validation error", content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
                         @ApiResponse(responseCode = "404", description = "User or product not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
         })
+        @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
         @PostMapping
         public ResponseEntity<OrderResponse> createOrder(
                         @Valid @RequestBody CreateOrderDTO createOrderDTO) {
 
-                Order createdOrder = orderService.createOrder(createOrderDTO.userId(), createOrderDTO);
+                int userId = securityUtils.getCurrentUserId();
+                Order createdOrder = orderService.createOrder(userId, createOrderDTO);
                 OrderResponse response = OrderMapper.toOrderResponse(createdOrder);
                 return ResponseEntity.status(HttpStatus.CREATED).body(response);
         }
 
         /**
-         * Get all orders
+         * Get all orders, optionally filtered by status
          * GET /api/orders
+         * GET /api/orders?status=pending
          */
-        @Operation(summary = "Get all orders", description = "Retrieves all orders in the system")
+        @Operation(summary = "Get all orders", description = "Retrieves all orders. Optionally filter by status using ?status=pending")
         @ApiResponse(responseCode = "200", description = "Orders retrieved successfully")
+        @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
         @GetMapping
-        public ResponseEntity<List<OrderResponse>> getAllOrders() {
-                List<Order> orders = orderService.getAllOrders();
-                List<OrderResponse> response = OrderMapper.toOrderResponseList(orders);
-                return ResponseEntity.ok(response);
+        public ResponseEntity<List<OrderResponse>> getAllOrders(
+                        @Parameter(description = "Filter by order status (optional)", example = "pending")
+                        @RequestParam(required = false) String status) {
+                List<Order> orders = (status != null && !status.isBlank())
+                                ? orderService.getOrdersByStatus(status)
+                                : orderService.getAllOrders();
+                return ResponseEntity.ok(OrderMapper.toOrderResponseList(orders));
         }
 
         /**
@@ -93,6 +104,7 @@ public class OrderController {
          */
         @Operation(summary = "Get all orders (paginated)", description = "Retrieves all orders with pagination. Default page size is 10, sorted by order date descending.")
         @ApiResponse(responseCode = "200", description = "Paginated orders retrieved successfully")
+        @PreAuthorize("hasRole('ADMIN')")
         @GetMapping("/paged")
         public ResponseEntity<PagedResponse<OrderResponse>> getAllOrdersPaged(
                         @PageableDefault(size = 10, sort = "orderDate", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -113,6 +125,7 @@ public class OrderController {
                         @ApiResponse(responseCode = "200", description = "Order retrieved successfully", content = @Content(schema = @Schema(implementation = OrderResponse.class))),
                         @ApiResponse(responseCode = "404", description = "Order not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
         })
+        @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
         @GetMapping("/{orderId}")
         public ResponseEntity<OrderResponse> getOrderById(
                         @Parameter(description = "Order ID", required = true, example = "1") @PathVariable int orderId) {
@@ -126,34 +139,38 @@ public class OrderController {
          * Get orders by user ID
          * GET /api/orders/user/{userId}
          */
-        @Operation(summary = "Get orders by user", description = "Retrieves all orders for a specific user")
+        @Operation(summary = "Get my orders", description = "Retrieves all orders for the authenticated user")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", description = "Orders retrieved successfully"),
                         @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
         })
-        @GetMapping("/user/{userId}")
-        public ResponseEntity<List<OrderResponse>> getOrdersByUserId(
-                        @PathVariable int userId) {
-
-                List<Order> orders = orderService.getOrdersByUserId(userId);
-                List<OrderResponse> response = OrderMapper.toOrderResponseList(orders);
-                return ResponseEntity.ok(response);
+        @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
+        @GetMapping("/me")
+        public ResponseEntity<List<OrderResponse>> getMyOrders(
+                        @Parameter(description = "Filter by order status (optional)", example = "pending")
+                        @RequestParam(required = false) String status) {
+                int userId = securityUtils.getCurrentUserId();
+                List<Order> orders = (status != null && !status.isBlank())
+                                ? orderService.getUserOrdersByStatus(userId, status)
+                                : orderService.getOrdersByUserId(userId);
+                return ResponseEntity.ok(OrderMapper.toOrderResponseList(orders));
         }
 
         /**
          * Get orders by user ID with pagination
          * GET /api/orders/user/{userId}/paged?page=0&size=10&sort=orderDate,desc
          */
-        @Operation(summary = "Get orders by user (paginated)", description = "Retrieves paginated orders for a specific user. Default page size is 10, sorted by order date descending.")
+        @Operation(summary = "Get my orders (paginated)", description = "Retrieves paginated orders for the authenticated user.")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", description = "Paginated orders retrieved successfully"),
                         @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
         })
-        @GetMapping("/user/{userId}/paged")
-        public ResponseEntity<PagedResponse<OrderResponse>> getOrdersByUserIdPaged(
-                        @PathVariable int userId,
+        @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
+        @GetMapping("/me/paged")
+        public ResponseEntity<PagedResponse<OrderResponse>> getMyOrdersPaged(
                         @PageableDefault(size = 10, sort = "orderDate", direction = Sort.Direction.DESC) Pageable pageable) {
 
+                int userId = securityUtils.getCurrentUserId();
                 Page<Order> ordersPage = orderService.getOrdersByUserId(userId, pageable);
                 Page<OrderResponse> responsePage = ordersPage.map(OrderMapper::toOrderResponse);
                 PagedResponse<OrderResponse> pagedResponse = PagedResponse.of(responsePage);
@@ -171,6 +188,7 @@ public class OrderController {
                         @ApiResponse(responseCode = "400", description = "Validation error or invalid status transition", content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
                         @ApiResponse(responseCode = "404", description = "Order not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
         })
+        @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
         @PatchMapping("/{orderId}/status")
         public ResponseEntity<OrderResponse> updateOrderStatus(
                         @Parameter(description = "Order ID", required = true, example = "1") @PathVariable int orderId,
@@ -183,17 +201,16 @@ public class OrderController {
 
         /**
          * Cancel an order
-         * DELETE /api/orders/{orderId}/cancellation
-         * Note: Prefer using PATCH /api/orders/{orderId}/status with status='cancelled'
-         * for RESTful approach
+         * POST /api/orders/{orderId}/cancellations
          */
-        @Operation(summary = "Cancel an order", description = "Cancels an existing order (sets status to 'cancelled'). Consider using PATCH /orders/{orderId}/status instead.")
+        @Operation(summary = "Cancel an order", description = "Cancels an existing order by creating a cancellation (sets status to 'cancelled').")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", description = "Order cancelled successfully", content = @Content(schema = @Schema(implementation = OrderResponse.class))),
                         @ApiResponse(responseCode = "400", description = "Order cannot be cancelled", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
                         @ApiResponse(responseCode = "404", description = "Order not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
         })
-        @DeleteMapping("/{orderId}/cancellation")
+        @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
+        @PostMapping("/{orderId}/cancellations")
         public ResponseEntity<OrderResponse> cancelOrder(
                         @Parameter(description = "Order ID", required = true, example = "1") @PathVariable int orderId) {
 
@@ -212,6 +229,7 @@ public class OrderController {
                         @ApiResponse(responseCode = "400", description = "Order cannot be deleted", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
                         @ApiResponse(responseCode = "404", description = "Order not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
         })
+        @PreAuthorize("hasRole('ADMIN')")
         @DeleteMapping("/{orderId}")
         public ResponseEntity<Void> deleteOrder(
                         @Parameter(description = "Order ID", required = true, example = "1") @PathVariable int orderId) {
@@ -229,6 +247,7 @@ public class OrderController {
                         @ApiResponse(responseCode = "200", description = "Order items retrieved successfully"),
                         @ApiResponse(responseCode = "404", description = "Order not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
         })
+        @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
         @GetMapping("/{orderId}/items")
         public ResponseEntity<List<OrderItemResponse>> getOrderItems(
                         @Parameter(description = "Order ID", required = true, example = "1") @PathVariable int orderId) {
@@ -239,75 +258,39 @@ public class OrderController {
         }
 
         /**
-         * Create order from cart
-         * POST /api/orders/from-cart
+         * Checkout from cart — create order from cart items
+         * POST /api/orders/checkout
          */
-        @Operation(summary = "Create order from cart", description = "Creates an order from user's cart items, validates stock, deducts inventory, and clears cart")
+        @Operation(summary = "Checkout from cart", description = "Creates an order from user's cart items, validates stock, deducts inventory, and clears cart")
         @ApiResponses({
                         @ApiResponse(responseCode = "201", description = "Order created successfully from cart", content = @Content(schema = @Schema(implementation = OrderResponse.class))),
                         @ApiResponse(responseCode = "400", description = "Cart is empty or insufficient stock", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
                         @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
         })
-        @PostMapping("/from-cart")
-        public ResponseEntity<OrderResponse> createOrderFromCart(
-                        @org.springframework.web.bind.annotation.RequestParam int userId) {
-
+        @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
+        @PostMapping("/checkout")
+        public ResponseEntity<OrderResponse> createOrderFromCart() {
+                int userId = securityUtils.getCurrentUserId();
                 Order order = orderService.checkoutFromCart(userId);
                 OrderResponse response = OrderMapper.toOrderResponse(order);
                 return ResponseEntity.status(HttpStatus.CREATED).body(response);
         }
 
         // ============================================================
-        // OPTIMIZED REPORTING ENDPOINTS - User Story 3.2
+        // REPORTING ENDPOINTS
         // ============================================================
 
         /**
-         * Get orders by status (optimized for reporting)
-         * GET /api/orders/status/{status}
-         */
-        @Operation(summary = "Get orders by status", description = "Retrieves all orders with a specific status (optimized with JOIN FETCH and composite index)")
-        @ApiResponses({
-                        @ApiResponse(responseCode = "200", description = "Orders retrieved successfully"),
-                        @ApiResponse(responseCode = "400", description = "Invalid status")
-        })
-        @GetMapping("/status/{status}")
-        public ResponseEntity<List<OrderResponse>> getOrdersByStatus(
-                        @Parameter(description = "Order status (pending, confirmed, processing, shipped, delivered, cancelled)", required = true, example = "pending") @PathVariable String status) {
-
-                List<Order> orders = orderService.getOrdersByStatus(status);
-                List<OrderResponse> response = OrderMapper.toOrderResponseList(orders);
-                return ResponseEntity.ok(response);
-        }
-
-        /**
-         * Get user orders by status (optimized for filtered order history)
-         * GET /api/orders/user/status/{status}
-         */
-        @Operation(summary = "Get user orders by status", description = "Retrieves user's orders filtered by status (optimized with composite index user_id + status)")
-        @ApiResponses({
-                        @ApiResponse(responseCode = "200", description = "User orders retrieved successfully"),
-                        @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-        })
-        @GetMapping("/user/status/{status}")
-        public ResponseEntity<List<OrderResponse>> getUserOrdersByStatus(
-                        @org.springframework.web.bind.annotation.RequestParam int userId,
-                        @Parameter(description = "Order status", required = true, example = "completed") @PathVariable String status) {
-
-                List<Order> orders = orderService.getUserOrdersByStatus(userId, status);
-                List<OrderResponse> response = OrderMapper.toOrderResponseList(orders);
-                return ResponseEntity.ok(response);
-        }
-
-        /**
-         * Get orders in date range (optimized for reporting)
-         * GET /api/orders/report/date-range
+         * Get orders in date range
+         * GET /api/orders/reports?startDate=2026-01-01T00:00:00&endDate=2026-12-31T23:59:59
          */
         @Operation(summary = "Get orders in date range", description = "Retrieves orders within a specific date range for reporting (optimized with JOIN FETCH)")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", description = "Orders retrieved successfully"),
                         @ApiResponse(responseCode = "400", description = "Invalid date range")
         })
-        @GetMapping("/report/date-range")
+        @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+        @GetMapping("/reports")
         public ResponseEntity<List<OrderResponse>> getOrdersInDateRange(
                         @Parameter(description = "Start date (ISO format: 2026-01-01T00:00:00)", required = true) @org.springframework.web.bind.annotation.RequestParam String startDate,
                         @Parameter(description = "End date (ISO format: 2026-12-31T23:59:59)", required = true) @org.springframework.web.bind.annotation.RequestParam String endDate) {
