@@ -22,6 +22,7 @@ import Profile from './pages/client/Profile/Profile';
 
 // Admin Pages
 import AdminLayout from './pages/admin/AdminLayout/AdminLayout';
+import AdminLogin from './pages/admin/AdminLogin/AdminLogin';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import Dashboard from './pages/admin/Dashboard/Dashboard';
 import ProductsAdmin from './pages/admin/Products/ProductsAdmin';
@@ -64,6 +65,7 @@ function App() {
           </Route>
 
           {/* Admin Routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<ProtectedAdminRoute><AdminLayout /></ProtectedAdminRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="products" element={<ProductsAdmin />} />

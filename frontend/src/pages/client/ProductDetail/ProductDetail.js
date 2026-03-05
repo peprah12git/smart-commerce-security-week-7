@@ -63,7 +63,7 @@ const ProductDetail = () => {
     }
     setAddingToCart(true);
     try {
-      await CartService.addToCart(userId, product.productId, quantity);
+      await CartService.addToCart(product.productId, quantity);
       showNotification(`Added ${quantity} ${product.productName} to cart!`, 'success');
     } catch (error) {
       console.error('Failed to add to cart:', error);

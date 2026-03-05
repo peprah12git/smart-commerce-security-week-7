@@ -28,7 +28,6 @@ public class User {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
-    @Column(nullable = false)
     private String password;
 
     private String phone;
@@ -37,8 +36,8 @@ public class User {
     @Column
     private String address;
 
-    @Column(nullable = false)
-    private String role = "USER";
+    @Enumerated(EnumType.STRING)
+    private UserRole role;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

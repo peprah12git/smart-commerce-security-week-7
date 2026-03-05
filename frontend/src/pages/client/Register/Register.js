@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, Phone, MapPin, Check } from 'lucide-react';
+import { User, Mail, Lock, Phone, MapPin } from 'lucide-react';
 import UserService from '../../../services/userService';
+import { useApp } from '../../../context/AppContext';
 import './Register.css';
 
 const Register = () => {
   const navigate = useNavigate();
+  const { showNotification, setUser } = useApp();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -16,7 +18,6 @@ const Register = () => {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -60,15 +61,21 @@ const Register = () => {
 
     setLoading(true);
     try {
-      await UserService.register({
+      // POST /api/users returns LoginResponseDTO with auto-issued JWT
+      const data = await UserService.register({
         name: formData.name,
         email: formData.email,
         password: formData.password,
         phone: formData.phone || null,
         address: formData.address || null,
       });
-      setSuccess(true);
-      setTimeout(() => navigate('/'), 2000);
+
+      const userObj = UserService.parseUserFromResponse(data);
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(userObj));
+      setUser(userObj);
+      showNotification(`Welcome, ${userObj.name}! Account created successfully.`, 'success');
+      navigate('/home');
     } catch (error) {
       const message = error.response?.data?.message || 'Registration failed';
       setErrors({ submit: message });
@@ -76,22 +83,6 @@ const Register = () => {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="register-page">
-        <div className="container">
-          <div className="success-card">
-            <div className="success-icon">
-              <Check size={48} />
-            </div>
-            <h2>Registration Successful!</h2>
-            <p>Your account has been created. Redirecting to home...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="register-page">

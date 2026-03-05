@@ -8,11 +8,6 @@ import jakarta.validation.constraints.Positive;
 @Schema(description = "Request body for adding an item to cart")
 public record AddToCartDTO(
 
-        @NotNull(message = "User ID is required")
-        @Positive(message = "User ID must be a positive number")
-        @Schema(description = "ID of the user", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
-        Integer userId,
-
         @NotNull(message = "Product ID is required")
         @Positive(message = "Product ID must be a positive number")
         @Schema(description = "ID of the product to add", example = "5", requiredMode = Schema.RequiredMode.REQUIRED)
