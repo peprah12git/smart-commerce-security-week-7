@@ -18,15 +18,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Executes once per request and gates every protected endpoint.
- *
- * Token validation pipeline (all steps are O(1)):
- *   1. Extract raw JWT from the Authorization: Bearer <token> header.
- *   2. Delegate to JwtTokenService.validateToken(), which runs:
- *        a. HMAC-SHA256 signature verification       ← hashing
- *        b. Expiry timestamp comparison              ← O(1) integer compare
- *        c. Blacklist lookup in ConcurrentHashMap    ← O(1) HashMap.containsKey
- *   3. Load UserDetails and store authentication in the SecurityContext.
- *
+
  * Audit events emitted:
  *   • JWT_VALIDATION_FAILURE — token present but invalid (signature, expiry)
  *   • REVOKED_TOKEN_REUSE    — token is specifically in the blacklist

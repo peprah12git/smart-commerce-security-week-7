@@ -78,21 +78,6 @@ public class JwtTokenService {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Validates a JWT in three sequential O(1) steps:
-     *
-     *   Step 1 – Signature / parse check: re-computes HMAC-SHA256 over the
-     *            header.payload and compares it to the embedded signature.
-     *            Any tampering is detected here. O(1) — fixed digest size.
-     *
-     *   Step 2 – Expiry check: compares the {@code exp} claim to the current
-     *            clock. O(1) integer comparison.
-     *
-     *   Step 3 – Blacklist check: O(1) HashMap.containsKey() lookup on the
-     *            SHA-256 hash of the token.  Ensures revoked (logged-out)
-     *            tokens are rejected even while they are still signature-valid
-     *            and not yet expired.
-     *
-     * Combined: O(1) total — constant time regardless of user population size.
      *
      * @param token the raw JWT string from the Authorization header
      * @return true only when the token passes all three checks
