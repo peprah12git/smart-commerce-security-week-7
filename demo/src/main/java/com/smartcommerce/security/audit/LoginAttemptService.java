@@ -12,43 +12,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
- * DSA Principle: HashMap + sliding-window counter for brute-force detection.
- * ─────────────────────────────────────────────────────────────────────────────
+ * DSA Principle: HashMap / Hash Table
  *
- * Data structures used
- * ─────────────────────
- * 1. {@code ConcurrentHashMap<String, Deque<Instant>>}
- *      Key   = username (or IP)
- *      Value = time-ordered deque of failed-attempt timestamps
- *
- *    A Deque (double-ended queue) allows O(1) append to the tail and O(1)
- *    removal from the head — perfect for a sliding time-window because we
- *    only ever need to drop old entries from the front.
- *
- *    Time complexity per operation:
- *      recordFailure()  — O(k)  where k = entries outside the window (amortised O(1))
- *      isBlocked()      — O(k)  same eviction sweep
- *      reset()          — O(1)  ConcurrentHashMap.remove
- *
- * 2. {@code ConcurrentHashMap<String, Long>} for block-until timestamps
- *      When a user is blocked, we record when the block expires.
- *      isBlocked() is then a pure O(1) Instant comparison.
- *
- * Brute-force prevention mechanism
- * ──────────────────────────────────
- *   After MAX_FAILURES attempts within WINDOW_SECONDS the account is soft-locked
- *   for LOCKOUT_SECONDS.  Every call to recordFailure() slides the window by
- *   removing timestamps older than Instant.now() - WINDOW_SECONDS from the
- *   head of the deque before counting — this is the "sliding window" algorithm.
- *
- *   Example  (MAX_FAILURES=5, WINDOW=60 s, LOCKOUT=300 s):
- *     T=0   → attempt 1
- *     T=10  → attempt 2
- *     T=20  → attempt 3
- *     T=30  → attempt 4
- *     T=40  → attempt 5  ← threshold hit, blocked until T=340
- *     T=41  → isBlocked() returns true — 401 returned immediately, no DB hit
- *     T=341 → block expired, counter reset
  */
 @Service
 public class LoginAttemptService {

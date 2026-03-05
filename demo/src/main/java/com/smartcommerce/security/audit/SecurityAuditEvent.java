@@ -4,29 +4,7 @@ import java.time.Instant;
 
 /**
  * Immutable value object that represents a single captured security event.
- *
- * Design decisions
- * ────────────────
- * • All fields are set once at construction — thread-safe by design.
- * • Uses {@link Instant} (UTC epoch) instead of LocalDateTime so that
- *   log aggregators (ELK, Splunk, Datadog) can parse and sort correctly
- *   without timezone conversion issues.
- * • The {@code details} free-text field allows callers to attach context
- *   (e.g. "bad password", "token expired", "IP geo-blocked") without
- *   polluting the fixed schema.
- *
- * JSON output example (produced by SecurityAuditService):
- * <pre>
- * {
- *   "eventType"   : "LOGIN_FAILURE",
- *   "username"    : "alice@example.com",
- *   "ipAddress"   : "192.168.1.42",
- *   "endpoint"    : "/api/auth/login",
- *   "httpMethod"  : "POST",
- *   "timestamp"   : "2026-03-04T14:22:07.341Z",
- *   "details"     : "Bad credentials"
- * }
- * </pre>
+   polluting the fixed schema.
  */
 public final class SecurityAuditEvent {
 

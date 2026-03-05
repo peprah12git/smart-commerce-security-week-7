@@ -13,38 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Central audit logger for all security events.
- *
- * ─── Responsibilities ─────────────────────────────────────────────────────
- *  1. Log every SecurityAuditEvent as a structured, JSON-friendly SLF4J
- *     message consumable by Logback / Log4j2 with a JSON encoder appender.
- *
- *  2. Track token-usage and endpoint-access frequency in ConcurrentHashMaps
- *     for in-process anomaly detection (O(1) per increment).
- *
- *  3. Detect high-frequency requests from a single IP and emit a
- *     HIGH_FREQUENCY_REQUEST event when the threshold is exceeded.
- *
- * ─── DSA Principles ──────────────────────────────────────────────────────
- *  • ConcurrentHashMap<String, AtomicLong>
- *      Key   = endpoint path (or IP)
- *      Value = AtomicLong hit counter
- *    AtomicLong.incrementAndGet() is a single CAS instruction — O(1) and
- *    lock-free even under high concurrency.
- *
- *  • The frequency maps are bounded by a @Scheduled reset every minute,
- *    so they function as a sliding-tumbling window counter without
- *    unbounded memory growth.
- *
- * ─── Log format ──────────────────────────────────────────────────────────
- * All log statements use the key=value pattern, making them trivially
- * parseable by any log aggregator without a custom Grok pattern:
- *
- *   eventType=LOGIN_FAILURE username=alice@example.com ipAddress=10.0.0.1
- *   endpoint=/api/auth/login httpMethod=POST
- *   timestamp=2026-03-04T14:22:07.341Z details="Bad credentials"
- *
- * When a Logback JSON encoder (logstash-logback-encoder) is on the
- * classpath, each MDC key becomes a top-level JSON field automatically.
+    * DSA Principle: HashMap / Hash Table
  */
 @Service
 public class SecurityAuditService {
@@ -61,8 +30,6 @@ public class SecurityAuditService {
 
     /**
      * Counts requests per endpoint path within the current monitoring window.
-     * Key = "METHOD /path";  Value = hit count.
-     * O(1) increment via AtomicLong CAS.
      */
     private final ConcurrentHashMap<String, AtomicLong> endpointFrequency =
             new ConcurrentHashMap<>();
@@ -113,13 +80,6 @@ public class SecurityAuditService {
     // Frequency tracking
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Increments hit counters for both the endpoint and the source IP.
-     * Returns true if the IP rate limit was breached (so the caller can fire
-     * a HIGH_FREQUENCY_REQUEST event exactly once per breach).
-     *
-     * O(1) — two ConcurrentHashMap lookups + AtomicLong CAS each.
-     */
     public boolean trackRequest(HttpServletRequest request) {
         String key    = request.getMethod() + " " + request.getRequestURI();
         String ip     = resolveClientIp(request);
