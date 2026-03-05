@@ -18,47 +18,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import com.smartcommerce.security.audit.AccessDeniedHandlerImpl;
 
-/**
- * Epic 5 — DSA & Security Optimization: Security Configuration
- * ─────────────────────────────────────────────────────────────────────────────
- * DSA Principles Applied
- *
- * 1. BCrypt — Adaptive Hashing for Password Storage
- *    • BCryptPasswordEncoder wraps the bcrypt KDF which applies a
- *      configurable cost factor (default 10 rounds) to the input password.
- *    • The output is a deterministic 60-character string that includes the
- *      salt, cost factor, and digest — making rainbow-table attacks infeasible.
- *    • Verification is constant-time to prevent timing attacks.
- *    • Defined as a shared @Bean and injected into:
- *        – DaoAuthenticationProvider  (login credential check)
- *        – UserServiceImp.registration() (password encoding on sign-up)
- *
- * 2. JWT Validation — HMAC-SHA256 Hashing
- *    • Every inbound JWT is verified by re-computing HMAC-SHA256 over
- *      header.payload with the shared secret key.  If the digests differ,
- *      the token is rejected immediately — O(1) constant-time check.
- *    • See JwtTokenService for full validation pipeline details.
- *
- * 3. Token Blacklist — ConcurrentHashMap (O(1) Lookup)
- *    • Revoked (logged-out) tokens are stored in an in-memory
- *      ConcurrentHashMap<SHA256(token), expiryMillis> managed by
- *      TokenBlacklistService.
- *    • Each request goes through JWTAuthenticationFilter which calls
- *      JwtTokenService.validateToken() — this includes an O(1) blacklist
- *      lookup before the SecurityContext is populated.
- *    • A @Scheduled task evicts expired entries every 30 minutes,
- *      keeping memory bounded without impacting per-request latency.
- *
- * Security pipeline per request:
- *   Request → JWTAuthenticationFilter
- *               ├─ extract Bearer token
- *               ├─ JwtTokenService.validateToken()
- *               │     ├─ 1. HMAC-SHA256 signature check     O(1)
- *               │     ├─ 2. expiry check                    O(1)
- *               │     └─ 3. HashMap blacklist check          O(1)
- *               └─ SecurityContext.setAuthentication()
- *                     → proceed to controller
- */
 @Configuration
 @EnableWebSecurity
 @org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
@@ -84,16 +43,14 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
-                // IF_REQUIRED: JWT endpoints are stateless; OAuth2 code flow needs a brief session for the state param
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
 
                         // ── Public: auth & registration ──────────────────────────────────
-                        .requestMatchers(HttpMethod.POST, "/api/users", "/api/users/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
 
                         // ── Authenticated: logout — requires a valid (non-revoked) Bearer token
-                        //    TokenBlacklistService will O(1)-insert the token on this call
                         .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
 
                         .requestMatchers("/api/auth/**").permitAll()
@@ -118,9 +75,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasAuthority("ROLE_ADMIN")
 
                         // ── Admin only: order reporting & all-orders views ─────────────────
-                        .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/paged").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/orders/status/**").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/orders/report/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/paged", "/api/orders/reports").hasAuthority("ROLE_ADMIN")
+                        // DELETE /api/orders/{id} — hard-delete (admin only)
                         .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasAuthority("ROLE_ADMIN")
 
                         // ── Swagger / Actuator ────────────────────────────────────────────
@@ -139,9 +95,6 @@ public class SecurityConfig {
 
     /**
      * DaoAuthenticationProvider uses:
-     *   1. UserDetailsService — loads user record from DB by username/email
-     *   2. BCryptPasswordEncoder — verifies submitted password against stored hash
-     *      using constant-time bcrypt comparison (prevents timing side-channels)
      */
     @Bean
     AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
@@ -157,13 +110,6 @@ public class SecurityConfig {
 
     /**
      * BCryptPasswordEncoder — Secure Password Hashing
-     *
-     * DSA Principle: Cryptographic hash function with adaptive cost.
-     *   • Internally runs the Blowfish cipher in a key-setup phase iterated
-     *     2^strength (default strength=10, i.e. 1024) times.
-     *   • Produces a 60-character encoded string: $2a$10$<22-char-salt><31-char-hash>
-     *   • encode()  — O(1), cost ~100 ms at strength 10 (intentionally slow)
-     *   • matches() — O(1), constant-time byte comparison after re-hashing
      */
     @Bean
     public PasswordEncoder passwordEncoder() {

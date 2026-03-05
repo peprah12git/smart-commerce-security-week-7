@@ -142,11 +142,11 @@ public class InventoryController {
 
     /**
      * Check if product is in stock
-     * GET /api/inventory/{productId}/check
+     * GET /api/inventory/{productId}/availability
      */
     @Operation(summary = "Check if product is in stock", description = "Checks if a product has available stock")
     @ApiResponse(responseCode = "200", description = "Stock status retrieved")
-    @GetMapping("/{productId}/check")
+    @GetMapping("/{productId}/availability")
     public ResponseEntity<Boolean> checkStock(
             @Parameter(description = "Product ID", required = true, example = "1")
             @PathVariable int productId) {
