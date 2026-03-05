@@ -12,7 +12,14 @@ A full-stack e-commerce application built with Spring Boot and React, featuring 
 - **Shopping Cart** functionality
 - **Order Management** with status tracking
 - **Review System** for products
-- **Security** with BCrypt password hashing
+- **JWT Authentication** — HMAC-SHA256 signed tokens with configurable expiry
+- **OAuth2 Social Login** — Google/GitHub login via Spring Security OAuth2
+- **Token Blacklist** — O(1) ConcurrentHashMap revocation on logout
+- **Brute-Force Protection** — account soft-lock after repeated failed logins
+- **Rate Limiting** — per-IP request tracking with high-frequency detection
+- **Security Audit Logging** — events for login failures, revoked token reuse, and rate-limit breaches
+- **Method-Level Authorization** — `@PreAuthorize` guards on every sensitive endpoint
+- **BCrypt Password Hashing** — secure credential storage
 - **API Documentation** with Swagger/OpenAPI
 - **AOP Logging** for performance monitoring and exception tracking
 - **Custom Validation** for business rules
@@ -29,16 +36,19 @@ A full-stack e-commerce application built with Spring Boot and React, featuring 
 ## 🛠️ Tech Stack
 
 ### Backend
-- **Java 21**
+- **Java 25**
 - **Spring Boot 4.0.2**
-- **Spring MVC** - REST APIs
-- **Spring GraphQL** - GraphQL support
-- **Spring JDBC** - Database operations
-- **MySQL** - Database
-- **BCrypt** - Password encryption
-- **Lombok** - Reduce boilerplate code
-- **SpringDoc OpenAPI** - API documentation
-- **Maven** - Build tool
+- **Spring Security** — JWT filter chain, method security
+- **Spring Security OAuth2 Client** — Social login support
+- **JJWT 0.12.5** — JWT generation and validation
+- **Spring MVC** — REST APIs
+- **Spring GraphQL** — GraphQL support
+- **Spring JDBC** — Database operations
+- **MySQL** — Database
+- **BCrypt** — Password encryption
+- **Lombok** — Reduce boilerplate code
+- **SpringDoc OpenAPI** — API documentation
+- **Maven** — Build tool
 
 ### Frontend
 - **React 18.2**
@@ -49,7 +59,7 @@ A full-stack e-commerce application built with Spring Boot and React, featuring 
 
 ## 📋 Prerequisites
 
-- **Java 21** or higher
+- **Java 25** or higher
 - **Maven 3.6+**
 - **Node.js 16+** and npm
 - **MySQL 8.0+**
@@ -121,9 +131,13 @@ http://localhost:8080/graphiql
 
 ### Main API Endpoints
 
+#### Authentication
+- `POST /api/auth/login` - Login and receive a JWT token
+- `POST /api/auth/logout` - Revoke the current JWT (requires Bearer token)
+- `GET /oauth2/authorization/google` - Initiate Google OAuth2 login
+
 #### Users
-- `POST /api/users/register` - Register new user
-- `POST /api/users/login` - User login
+- `POST /api/users` - Register new user
 - `GET /api/users/{id}` - Get user by ID
 - `PUT /api/users/{id}` - Update user
 - `DELETE /api/users/{id}` - Delete user
@@ -149,6 +163,13 @@ http://localhost:8080/graphiql
 - `DELETE /api/cart/{cartItemId}` - Remove item from cart
 - `DELETE /api/cart/user/{userId}` - Clear cart
 
+#### Inventory
+- `GET /api/inventory/paged` - Get all inventory paginated (Admin)
+- `GET /api/inventory/{productId}` - Get inventory for a product (Admin)
+- `PUT /api/inventory/{productId}` - Update product quantity (Admin)
+- `POST /api/inventory` - Create inventory record (Admin)
+- `GET /api/inventory/low-stock` - Get low-stock items (Admin)
+
 #### Orders
 - `POST /api/orders` - Create order
 - `GET /api/orders` - Get all orders
@@ -169,7 +190,9 @@ http://localhost:8080/graphiql
 - **CartItems** - Shopping cart items
 - **Reviews** - Product reviews and ratings
 
-## 🔐 Default Test Accounts
+## 🔐 Authentication
+
+### Default Test Accounts
 
 ```
 Admin Account:
@@ -180,6 +203,26 @@ User Account:
 Email: john.doe@email.com
 Password: password123
 ```
+
+### JWT Login
+```bash
+# Login and get token
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@test.com","password":"password123"}'
+
+# Use token in subsequent requests
+curl -H "Authorization: Bearer <token>" http://localhost:8080/api/orders
+```
+
+### Logout (token revocation)
+```bash
+curl -X POST http://localhost:8080/api/auth/logout \
+  -H "Authorization: Bearer <token>"
+```
+
+### OAuth2 Social Login
+Navigate to `http://localhost:8080/oauth2/authorization/google` to initiate Google login. On success, the server issues a JWT the same way as the password flow.
 
 ## 🏗️ Project Structure
 
@@ -234,9 +277,16 @@ week-5-Ecommerce/
 - Bean validation with Jakarta Validation API
 
 ### Security
-- BCrypt password hashing
-- Role-based access control (Admin/User)
-- CORS configuration for frontend integration
+- **JWT (HMAC-SHA256)** — stateless token authentication with configurable expiry (default 24h)
+- **Token Blacklist** — revoked tokens stored in a `ConcurrentHashMap` for O(1) lookup on every request
+- **OAuth2 Social Login** — Google/GitHub via Spring Security OAuth2 with custom success handler
+- **Brute-Force Protection** — `LoginAttemptService` soft-locks accounts after repeated failures (returns HTTP 429)
+- **Rate Limiting** — `SecurityAuditService` tracks per-IP request frequency and emits `HIGH_FREQUENCY_REQUEST` audit events
+- **Security Audit Logging** — structured events: `LOGIN_FAILURE`, `REVOKED_TOKEN_REUSE`, `HIGH_FREQUENCY_REQUEST`, `ACCESS_DENIED`
+- **Method-Level Authorization** — `@PreAuthorize("hasAuthority('ROLE_ADMIN')")` on all write and admin endpoints
+- **BCrypt Password Hashing** — secure credential storage via `BCryptPasswordEncoder`
+- **CORS** configuration for frontend integration
+- **Custom 401/403 Handlers** — `JwtAuthenticationEntryPoint` and `AccessDeniedHandlerImpl` return structured JSON error responses
 
 ### Query Optimization
 - **JOIN FETCH** - Eliminates N+1 query problems (90% query reduction)
