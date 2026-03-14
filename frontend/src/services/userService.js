@@ -10,6 +10,20 @@ const decodeTokenPayload = (token) => {
   }
 };
 
+const normalizeRole = (role) => {
+  if (!role) return 'CUSTOMER';
+  return role.startsWith('ROLE_') ? role.replace('ROLE_', '') : role;
+};
+
+const parseUserProfile = (data) => ({
+  userId: data.userId,
+  name: data.name,
+  email: data.email,
+  phone: data.phone,
+  address: data.address,
+  role: normalizeRole(data.role),
+});
+
 const UserService = {
   // Register new user — POST /api/users
   register: async (userData) => {
@@ -21,6 +35,11 @@ const UserService = {
   login: async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
     return response.data; // LoginResponseDTO: {userId, name, email, role, token, message}
+  },
+
+  getMyProfile: async () => {
+    const response = await api.get('/users/me');
+    return parseUserProfile(response.data);
   },
 
   // Logout — POST /api/auth/logout (revokes JWT in server-side blacklist)
@@ -43,15 +62,16 @@ const UserService = {
     userId: data.userId,
     name: data.name,
     email: data.email,
-    role: data.role,
+    role: normalizeRole(data.role),
   }),
 
   // Decode user info from a raw JWT (used after OAuth2 redirect)
   parseUserFromToken: (token) => {
     const payload = decodeTokenPayload(token);
+    const rawRole = (payload.roles && payload.roles[0]) || 'ROLE_CUSTOMER';
     return {
       email: payload.sub || '',
-      role: (payload.roles && payload.roles[0]) || 'ROLE_CUSTOMER',
+      role: normalizeRole(rawRole),
       name: payload.sub || '',
     };
   },

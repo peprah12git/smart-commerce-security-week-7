@@ -1,14 +1,12 @@
 package com.smartcommerce.security;
 
-import com.smartcommerce.model.User;
-import com.smartcommerce.repositories.UserRepository;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
+import com.smartcommerce.model.User;
+import com.smartcommerce.repositories.UserRepository;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
@@ -24,9 +22,11 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
+        String safePassword = user.getPassword() != null ? user.getPassword() : "";
+
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getEmail())
-                .password(user.getPassword())
+            .password(safePassword)
                 .authorities("ROLE_" + user.getRole().name())
                 .build();
     }

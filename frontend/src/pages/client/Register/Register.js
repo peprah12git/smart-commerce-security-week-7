@@ -19,6 +19,8 @@ const Register = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
+  const passwordPolicyRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,128}$/;
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -42,8 +44,8 @@ const Register = () => {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (!passwordPolicyRegex.test(formData.password)) {
+      newErrors.password = 'Password must be 12+ chars and include uppercase, lowercase, number, and special character';
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -139,11 +141,12 @@ const Register = () => {
                     type="password"
                     name="password"
                     className={`form-input ${errors.password ? 'error' : ''}`}
-                    placeholder="••••••••"
+                    placeholder="SecurePass123!"
                     value={formData.password}
                     onChange={handleChange}
                   />
                 </div>
+                <p className="password-hint">Use 12+ characters with uppercase, lowercase, number, and special character.</p>
                 {errors.password && <p className="error-message">{errors.password}</p>}
               </div>
 

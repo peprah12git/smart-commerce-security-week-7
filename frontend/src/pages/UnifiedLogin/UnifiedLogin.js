@@ -17,17 +17,35 @@ const UnifiedLogin = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Handle OAuth2 success redirect: backend appends ?token=<jwt> to http://localhost:3000
+  // Handle OAuth2 redirects using HttpOnly cookie-based auth.
   useEffect(() => {
-    const oauthToken = searchParams.get('token');
-    if (oauthToken) {
-      const userObj = UserService.parseUserFromToken(oauthToken);
-      localStorage.setItem('token', oauthToken);
-      localStorage.setItem('user', JSON.stringify(userObj));
-      setUser(userObj);
-      showNotification(`Welcome, ${userObj.name || userObj.email}!`, 'success');
-      navigate('/home', { replace: true });
+    const oauthError = searchParams.get('error');
+    if (oauthError) {
+      setErrors((prev) => ({ ...prev, submit: oauthError }));
+      showNotification('Google sign-in failed', 'error');
+      return;
     }
+
+    const oauthStatus = searchParams.get('oauth');
+    if (oauthStatus !== 'success') {
+      return;
+    }
+
+    const hydrateSessionFromCookie = async () => {
+      try {
+        const userObj = await UserService.getMyProfile();
+        localStorage.setItem('user', JSON.stringify(userObj));
+        setUser(userObj);
+        showNotification(`Welcome, ${userObj.name || userObj.email}!`, 'success');
+        navigate('/home', { replace: true });
+      } catch (error) {
+        const message = error.response?.data?.message || 'OAuth login succeeded but session could not be loaded';
+        setErrors((prev) => ({ ...prev, submit: message }));
+        showNotification('Sign-in completed, but session setup failed', 'error');
+      }
+    };
+
+    hydrateSessionFromCookie();
   }, [searchParams, navigate, setUser, showNotification]);
 
   const handleChange = (e) => {

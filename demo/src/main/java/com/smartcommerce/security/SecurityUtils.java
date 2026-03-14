@@ -23,9 +23,6 @@ public class SecurityUtils {
         this.userService = userService;
     }
 
-    /**
-     * Returns the full User entity for the currently authenticated principal.
-     */
     public User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
@@ -35,9 +32,7 @@ public class SecurityUtils {
         return userService.getUserByEmail(email);
     }
 
-    /**
-     * Returns just the userId — the most common thing controllers need.
-     */
+
     public int getCurrentUserId() {
         return getCurrentUser().getUserId();
     }

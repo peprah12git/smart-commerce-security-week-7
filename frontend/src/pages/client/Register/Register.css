@@ -48,6 +48,12 @@
   padding-left: 44px;
 }
 
+.password-hint {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
