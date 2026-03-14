@@ -9,28 +9,17 @@ import java.util.function.Function;
 import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+
+import com.smartcommerce.model.User;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 
-/**
- * DSA Principles applied in this service
- * ─────────────────────────────────────────────────────────────────────────────
- * 1. Hashing (HMAC-SHA256 / BCrypt analogy)
- *    JWT signatures use HMAC-SHA256, a keyed hash function.
- *    Like BCrypt for passwords, the hash is deterministic given the same key,
- *    making forgery computationally infeasible (pre-image resistance).
- *    Validation is O(1) — re-sign the header+payload and compare digests.
- *
- * 2. Blacklist integration (O(1) HashMap lookup)
- *    Before accepting any token as valid, we consult the TokenBlacklistService,
- *    which stores revoked tokens in a ConcurrentHashMap.  The additional check
- *    is pure O(1) and adds negligible latency compared to the JWT parse step.
- */
+
 @Service
 public class JwtTokenService {
 
@@ -40,7 +29,6 @@ public class JwtTokenService {
     @Value("${jwt.expiration:86400000}")
     private long jwtExpiration;
 
-    // Injected via constructor — no circular dependency
     // (TokenBlacklistService has no dependency on JwtTokenService)
     private final TokenBlacklistService tokenBlacklistService;
 
@@ -48,25 +36,49 @@ public class JwtTokenService {
         this.tokenBlacklistService = tokenBlacklistService;
     }
 
+    @SuppressWarnings("unused")
+    @PostConstruct
+    void validateJwtConfiguration() {
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException("Missing required property: jwt.secret (Base64-encoded HMAC key)");
+        }
+
+        try {
+            byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+            if (keyBytes.length < 32) {
+                throw new IllegalStateException("Invalid jwt.secret: decoded key must be at least 32 bytes for HS256");
+            }
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("Invalid jwt.secret: must be valid Base64 content", ex);
+        }
+
+        if (jwtExpiration <= 0) {
+            throw new IllegalStateException("Invalid jwt.expiration: value must be greater than 0 milliseconds");
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Token generation
     // ─────────────────────────────────────────────────────────────────────────
 
-    public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+    public String generateToken(User user) {
+        return generateToken(new HashMap<>(), user);
     }
 
-    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(authority -> authority.getAuthority())
-                .collect(java.util.stream.Collectors.toList());
+    public String generateToken(Map<String, Object> extraClaims, User user) {
+        if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
+            throw new IllegalArgumentException("User email is required for token generation");
+        }
+
+        String role = user.getRole() != null ? user.getRole().name() : "CUSTOMER";
+        List<String> roles = List.of("ROLE_" + role);
 
         Map<String, Object> claims = new HashMap<>(extraClaims);
         claims.put("roles", roles);
 
         return Jwts.builder()
                 .claims(claims)
-                .subject(userDetails.getUsername())
+                .subject(user.getEmail())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
                 .signWith(getSigningKey())
@@ -91,17 +103,9 @@ public class JwtTokenService {
                     .parseSignedClaims(token);
 
             // Step 2: expiry check
-            if (isTokenExpired(token)) {
-                return false;
-            }
-
             // Step 3: blacklist check — O(1) HashMap.containsKey()
-            if (tokenBlacklistService.isRevoked(token)) {
-                return false;
-            }
-
-            return true;
-        } catch (Exception e) {
+            return !isTokenExpired(token) && !tokenBlacklistService.isRevoked(token);
+        } catch (RuntimeException e) {
             return false;
         }
     }

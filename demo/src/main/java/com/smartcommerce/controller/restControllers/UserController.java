@@ -193,13 +193,18 @@ public class UserController {
 
     private User buildUserFromUpdateDTO(UpdateUserDTO dto) {
         User user = new User();
-        user.setName(dto.name());
-        user.setEmail(dto.email());
-        user.setPhone(dto.phone());
-        user.setAddress(dto.address());
-        if (dto.password() != null && !dto.password().isBlank()) {
-            user.setPassword(dto.password());
-        }
+                if (dto.name() != null && !dto.name().isBlank()) {
+                        user.setName(dto.name());
+                }
+                if (dto.email() != null && !dto.email().isBlank()) {
+                        user.setEmail(dto.email());
+                }
+                if (dto.phone() != null && !dto.phone().isBlank()) {
+                        user.setPhone(dto.phone());
+                }
+                if (dto.address() != null && !dto.address().isBlank()) {
+                        user.setAddress(dto.address());
+                }
         if (dto.role() != null && !dto.role().isBlank()) {
             user.setRole(UserRole.valueOf(dto.role()));
         }

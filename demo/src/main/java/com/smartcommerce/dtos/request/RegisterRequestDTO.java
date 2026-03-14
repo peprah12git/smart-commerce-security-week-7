@@ -5,6 +5,7 @@ import com.smartcommerce.validation.ValidPhone;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 @Schema(description = "Request body for creating a new user")
@@ -21,8 +22,12 @@ public record RegisterRequestDTO(
         String email,
 
         @NotBlank(message = "Password is required")
-        @Size(min = 6, max = 128, message = "Password must be between 6 and 128 characters")
-        @Schema(description = "Account password (min 6 characters)", example = "securePass123", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Size(min = 12, max = 128, message = "Password must be between 12 and 128 characters")
+        @Pattern(
+                regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{12,128}$",
+                message = "Password must include uppercase, lowercase, number, and special character"
+        )
+        @Schema(description = "Account password (12+ chars with upper/lower/number/special)", example = "SecurePass123!", requiredMode = Schema.RequiredMode.REQUIRED)
         String password,
 
         @ValidPhone

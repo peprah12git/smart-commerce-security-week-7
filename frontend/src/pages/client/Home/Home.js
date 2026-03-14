@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Package, Tag, Users, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductCard from '../../../components/ProductCard/ProductCard';
 import Loading from '../../../components/Loading/Loading';
 import ProductService from '../../../services/productService';
+import UserService from '../../../services/userService';
 import { useApp } from '../../../context/AppContext';
 import './Home.css';
 
@@ -175,9 +176,44 @@ const HeroSlider = () => {
 
 // ── Home page ────────────────────────────────────────────────────────────────
 const Home = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { categories } = useApp();
+  const { categories, setUser, showNotification } = useApp();
+
+  useEffect(() => {
+    const oauthToken = searchParams.get('token');
+    if (oauthToken) {
+      const userObj = UserService.parseUserFromToken(oauthToken);
+      localStorage.setItem('token', oauthToken);
+      localStorage.setItem('user', JSON.stringify(userObj));
+      setUser(userObj);
+      showNotification(`Welcome, ${userObj.name || userObj.email}!`, 'success');
+      navigate('/home', { replace: true });
+      return;
+    }
+
+    const oauthStatus = searchParams.get('oauth');
+    if (oauthStatus !== 'success') {
+      return;
+    }
+
+    const hydrateOAuthSession = async () => {
+      try {
+        const userObj = await UserService.getMyProfile();
+        localStorage.setItem('user', JSON.stringify(userObj));
+        setUser(userObj);
+        showNotification(`Welcome, ${userObj.name || userObj.email}!`, 'success');
+      } catch (error) {
+        showNotification('OAuth sign-in completed, but session setup failed', 'error');
+      } finally {
+        navigate('/home', { replace: true });
+      }
+    };
+
+    hydrateOAuthSession();
+  }, [searchParams, navigate, setUser, showNotification]);
 
   useEffect(() => {
     fetchFeaturedProducts();

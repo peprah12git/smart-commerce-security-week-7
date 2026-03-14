@@ -14,6 +14,45 @@ server:
 #    path: /swagger-ui.html       # Swagger UI location
 
 spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/ecommerce_db
+    username: ${DB_USERNAME:root}
+    password: ${DB-PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
+    hibernate:
+      ddl-auto: update
     show-sql: false
+    open-in-view: false
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${OAUTH_CLIENTID}
+            client-secret: ${OAUTH-CLIENT-SECRET}
+            scope: email, profile
+
+# ── JWT ──────────────────────────────────────────────────────────────────────
+# jwt.secret must be a Base64-encoded HMAC-SHA256 key (≥ 32 decoded bytes).
+# Set the JWT_SECRET environment variable in every environment.
+# Generate a strong key:  openssl rand -base64 64
+#
+# The default below is intentionally insecure — local development only.
+# NEVER deploy to any shared or production environment without setting JWT_SECRET.
+jwt:
+  secret: ${JWT_SECRET:c21hcnRjb21tZXJjZS1sb2NhbC1kZXYta21zLW1lLXBsZWFzZS1vdmVycmlkZS10aGlzLXNlY3JldA==}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+app:
+  auth:
+    oauth:
+      success-redirect-url: ${OAUTH_SUCCESS_REDIRECT_URL:http://localhost:3000/login?oauth=success}
+      failure-redirect-url: ${OAUTH_FAILURE_REDIRECT_URL:http://localhost:3000/login}
+    cookie:
+      name: ${AUTH_COOKIE_NAME:AUTH_TOKEN}
+      secure: ${AUTH_COOKIE_SECURE:false}
+      max-age-seconds: ${AUTH_COOKIE_MAX_AGE_SECONDS:86400}
 

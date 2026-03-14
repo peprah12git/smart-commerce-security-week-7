@@ -12,20 +12,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-/**
- * DSA Principle: HashMap / Hash Table
- * ─────────────────────────────────────────────────────────────────────────────
-    * This service implements a token blacklist using a ConcurrentHashMap, which
- */
+
 @Service
 public class TokenBlacklistService {
 
     private static final Logger log = LoggerFactory.getLogger(TokenBlacklistService.class);
 
-    /**
-     * The core data structure:
-        *   Key: SHA-256 hash of the raw JWT string (fixed-length 64-character hex)
-     */
+
     private final ConcurrentHashMap<String, Long> blacklist = new ConcurrentHashMap<>();
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -55,7 +48,6 @@ public class TokenBlacklistService {
     /**
      * Explicitly removes a token from the blacklist.
      * Useful if the entry was pre-emptively inserted and then needs to be rolled back.
-     *
      * @param rawToken the raw JWT string to remove
      */
     public void removeToken(String rawToken) {
@@ -106,7 +98,6 @@ public class TokenBlacklistService {
             byte[] hashBytes = digest.digest(rawToken.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hashBytes);
         } catch (NoSuchAlgorithmException e) {
-            // SHA-256 is mandated by the Java SE spec — this branch is unreachable
             throw new IllegalStateException("SHA-256 algorithm not available", e);
         }
     }
