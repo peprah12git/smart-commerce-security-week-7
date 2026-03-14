@@ -11,12 +11,33 @@ public class JWTAuthenticationToken extends AbstractAuthenticationToken {
     private final UserDetails principal;
     private final String token;
 
-    public JWTAuthenticationToken(UserDetails principal, String token,
-                                   Collection<? extends GrantedAuthority> authorities) {
+    private JWTAuthenticationToken(UserDetails principal,
+                                   String token,
+                                   Collection<? extends GrantedAuthority> authorities,
+                                   boolean authenticated) {
         super(authorities);
         this.principal = principal;
         this.token = token;
-        setAuthenticated(true);
+        super.setAuthenticated(authenticated);
+    }
+
+    public static JWTAuthenticationToken authenticated(UserDetails principal,
+                                                       String token,
+                                                       Collection<? extends GrantedAuthority> authorities) {
+        return new JWTAuthenticationToken(principal, token, authorities, true);
+    }
+
+    @Override
+    public void setAuthenticated(boolean isAuthenticated) {
+        if (isAuthenticated) {
+            throw new IllegalArgumentException("Cannot mark JWTAuthenticationToken authenticated via setter");
+        }
+        super.setAuthenticated(false);
+    }
+
+    @Override
+    public void eraseCredentials() {
+        super.eraseCredentials();
     }
 
     @Override

@@ -1,14 +1,5 @@
 package com.smartcommerce.security.audit;
 
-/**
- * Canonical vocabulary of security events that the audit system records.
- *
- * Using an enum (rather than plain strings) gives us:
- *   • Compile-time exhaustiveness — no typo-ridden event names in logs.
- *   • Easy filtering in log aggregators (Splunk, ELK) via exact-match on
- *     the "eventType" JSON field.
- *   • A single source of truth for dashboards and alerting rules.
- */
 public enum SecurityEventType {
 
     // ── Authentication ───────────────────────────────────────────────────────
@@ -33,10 +24,7 @@ public enum SecurityEventType {
     ACCESS_DENIED,
 
     // ── Anomaly / Threat Detection ───────────────────────────────────────────
-    /**
-     * Raised when a user exceeds the failed-login threshold within the
-     * configured time window.  Indicates a possible brute-force attempt.
-     */
+
     BRUTE_FORCE_DETECTED,
 
     /** Endpoint hit-rate for a single IP exceeded the configured threshold. */

@@ -1,8 +1,12 @@
 package com.smartcommerce.controller.restControllers;
 
+import java.time.Duration;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -13,7 +17,6 @@ import com.smartcommerce.dtos.request.LoginRequestDTO;
 import com.smartcommerce.dtos.response.LoginResponseDTO;
 import com.smartcommerce.exception.ErrorResponse;
 import com.smartcommerce.model.User;
-import com.smartcommerce.security.CustomUserDetailsService;
 import com.smartcommerce.security.JwtTokenService;
 import com.smartcommerce.security.audit.LoginAttemptService;
 import com.smartcommerce.security.audit.SecurityAuditService;
@@ -35,25 +38,25 @@ public class AuthController {
 
     private final UserService userService;
     private final JwtTokenService jwtTokenService;
-    private final CustomUserDetailsService customUserDetailsService;
     private final SecurityAuditService auditService;
     private final LoginAttemptService loginAttemptService;
 
+        @Value("${app.auth.cookie.name:AUTH_TOKEN}")
+        private String authCookieName;
+
+        @Value("${app.auth.cookie.secure:false}")
+        private boolean authCookieSecure;
+
     public AuthController(UserService userService,
                           JwtTokenService jwtTokenService,
-                          CustomUserDetailsService customUserDetailsService,
                           SecurityAuditService auditService,
                           LoginAttemptService loginAttemptService) {
         this.userService              = userService;
         this.jwtTokenService          = jwtTokenService;
-        this.customUserDetailsService = customUserDetailsService;
         this.auditService             = auditService;
         this.loginAttemptService      = loginAttemptService;
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Login
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Operation(summary = "Login", description = "Authenticates user and returns a signed JWT token")
     @ApiResponses({
@@ -84,11 +87,8 @@ public class AuthController {
             // 1. Authenticate via AuthenticationManager (BCrypt comparison inside)
             User user = userService.login(email, loginRequest.password());
 
-            // 2. Load UserDetails for JWT generation
-            UserDetails userDetails = customUserDetailsService.loadUserByUsername(user.getEmail());
-
-            // 3. Generate HMAC-SHA256 signed JWT
-            String token = jwtTokenService.generateToken(userDetails);
+                        // 2. Generate HMAC-SHA256 signed JWT from authenticated domain user
+                        String token = jwtTokenService.generateToken(user);
 
             // 4. Audit: LOGIN_SUCCESS + reset failure counter
             auditService.loginSuccess(email, request);
@@ -104,7 +104,7 @@ public class AuthController {
 
             return ResponseEntity.ok(response);
 
-        } catch (Exception ex) {
+                } catch (RuntimeException ex) {
             // 5. Audit: LOGIN_FAILURE â€” record failure, check if brute-force threshold crossed
             auditService.loginFailure(email, request, ex.getMessage());
 
@@ -113,9 +113,6 @@ public class AuthController {
         }
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Logout
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Revokes the caller's JWT by inserting it into the in-memory blacklist.
@@ -141,25 +138,53 @@ public class AuthController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             HttpServletRequest request) {
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.badRequest()
-                    .body("Missing or malformed Authorization header");
+                String token = extractToken(authHeader, request);
+
+                if (token == null || token.isBlank()) {
+                        return ResponseEntity.badRequest()
+                                        .body("Missing or malformed authentication token");
+                }
+
+                // Resolve username for the audit log (best-effort — token is still valid here)
+                String username = "unknown";
+                try {
+                        username = jwtTokenService.getEmailFromToken(token);
+                } catch (Exception ignored) { }
+
+                // O(1) SHA-256(token) inserted into ConcurrentHashMap blacklist
+                jwtTokenService.revokeToken(token);
+
+                // Emit structured LOGOUT audit event
+                auditService.logout(username, request);
+
+                ResponseCookie clearAuthCookie = ResponseCookie.from(authCookieName, "")
+                                .httpOnly(true)
+                                .secure(authCookieSecure)
+                                .path("/")
+                                .sameSite("Lax")
+                                .maxAge(Duration.ZERO)
+                                .build();
+
+                return ResponseEntity.ok()
+                                .header(HttpHeaders.SET_COOKIE, clearAuthCookie.toString())
+                                .body("Logout successful token has been revoked");
         }
 
-        String token = authHeader.substring(7);
+        private String extractToken(String authHeader, HttpServletRequest request) {
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                        return authHeader.substring(7);
+        }
 
-        // Resolve username for the audit log (best-effort â€” token is still valid here)
-        String username = "unknown";
-        try {
-            username = jwtTokenService.getEmailFromToken(token);
-        } catch (Exception ignored) { }
+                if (request.getCookies() == null) {
+                        return null;
+                }
 
-        // O(1) â€” SHA-256(token) inserted into ConcurrentHashMap blacklist
-        jwtTokenService.revokeToken(token);
+                for (var cookie : request.getCookies()) {
+                        if (authCookieName.equals(cookie.getName())) {
+                                return cookie.getValue();
+                        }
+                }
 
-        // Emit structured LOGOUT audit event
-        auditService.logout(username, request);
-
-        return ResponseEntity.ok("Logout successful â€” token has been revoked");
+                return null;
     }
 }

@@ -19,17 +19,6 @@ import jakarta.servlet.http.HttpServletResponse;
 /**
  * Handles HTTP 403 Forbidden responses for authenticated principals who
  * attempt to access resources above their role level.
- *
- * Replaces Spring Security's default {@code AccessDeniedHandlerImpl} to:
- *   1. Emit a structured {@link SecurityEventType#ACCESS_DENIED} audit log
- *      via {@link SecurityAuditService}.
- *   2. Return a consistent JSON error body (matching the format used by
- *      {@code JwtAuthenticationEntryPoint} for 401 responses).
- *
- * Example scenario:
- *   A CUSTOMER-role user calls DELETE /api/products/42 (ADMIN only).
- *   Spring Security calls this handler after the JWT is validated but
- *   before the controller method executes.
  */
 @Component
 public class AccessDeniedHandlerImpl implements AccessDeniedHandler {

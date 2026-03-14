@@ -5,6 +5,7 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 /**
  * Cache Configuration for Spring Cache
@@ -25,8 +26,9 @@ public class CacheConfig {
     public static final String USER_EMAIL_CACHE = "userByEmail";
     public static final String INVENTORY_CACHE = "inventory";
 
-    @Bean
-    public CacheManager cacheManager() {
+    @Bean(name = "appCacheManager")
+    @Primary
+    public CacheManager appCacheManager() {
         ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager(
                 PRODUCTS_CACHE,
                 PRODUCT_CACHE,

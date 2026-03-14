@@ -1,5 +1,9 @@
 package com.smartcommerce.service.imp;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 
 import org.springframework.cache.annotation.CacheEvict;
@@ -8,6 +12,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,24 +48,19 @@ public class UserServiceImp implements UserService {
      * @throws BusinessException          if user creation fails
      */
     @Override
-    @Caching(evict = {
-            @CacheEvict(value = "users", allEntries = true),
-            @CacheEvict(value = "user", key = "#result.userId"),
-            @CacheEvict(value = "userByEmail", key = "#result.email")
-    })
+
     public User registration(User request){
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new DuplicateResourceException("User", "email", request.getEmail());
         }
+
+        validateRegistrationPassword(request.getPassword());
+
         User user = new User();
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
         user.setAddress(request.getAddress());
-        // DSA Principle: BCrypt hashing (adaptive cost, salted)
-        // passwordEncoder.encode() runs bcrypt KDF with 2^10 iterations + random salt.
-        // The resulting 60-char string is safe to store; the raw password is never persisted.
-        // Time complexity: O(1) — independent of dataset size, bounded by work factor.
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         user.setPassword(encodedPassword);
 
@@ -137,11 +137,11 @@ public class UserServiceImp implements UserService {
         User existingUser = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        // Validate updated details
-        validateUser(userDetails);
+        // Validate only fields provided for partial update
+        validateUserForUpdate(userDetails);
 
         // Check for duplicate email (if email is being changed)
-        if (!existingUser.getEmail().equals(userDetails.getEmail())) {
+        if (hasText(userDetails.getEmail()) && !existingUser.getEmail().equals(userDetails.getEmail())) {
             userRepository.findByEmail(userDetails.getEmail()).ifPresent(userWithEmail -> {
                 if (userWithEmail.getUserId() != userId) {
                     throw new DuplicateResourceException("User", "email", userDetails.getEmail());
@@ -150,14 +150,17 @@ public class UserServiceImp implements UserService {
         }
 
         // Update user details
-        existingUser.setName(userDetails.getName());
-        existingUser.setEmail(userDetails.getEmail());
-        existingUser.setPhone(userDetails.getPhone());
-        existingUser.setAddress(userDetails.getAddress());
-
-        // Update password only if provided
-        if (userDetails.getPassword() != null && !userDetails.getPassword().trim().isEmpty()) {
-            existingUser.setPassword(userDetails.getPassword());
+        if (hasText(userDetails.getName())) {
+            existingUser.setName(userDetails.getName());
+        }
+        if (hasText(userDetails.getEmail())) {
+            existingUser.setEmail(userDetails.getEmail());
+        }
+        if (hasText(userDetails.getPhone())) {
+            existingUser.setPhone(userDetails.getPhone());
+        }
+        if (hasText(userDetails.getAddress())) {
+            existingUser.setAddress(userDetails.getAddress());
         }
 
         // Update role only if provided
@@ -166,6 +169,25 @@ public class UserServiceImp implements UserService {
         }
 
         return userRepository.save(existingUser);
+    }
+
+    private void validateUserForUpdate(User user) {
+        if (user == null) {
+            throw new BusinessException("User cannot be null");
+        }
+
+        if (hasText(user.getName()) && user.getName().trim().length() < 2) {
+            throw new BusinessException("User name must be at least 2 characters long");
+        }
+
+        if (hasText(user.getEmail()) && !isValidEmail(user.getEmail().trim())) {
+            throw new BusinessException("Invalid email format");
+        }
+
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     /**
@@ -191,38 +213,6 @@ public class UserServiceImp implements UserService {
     }
 
     /**
-     * Validates user data
-     *
-     * @param user User to validate
-     * @throws BusinessException if validation fails
-     */
-    private void validateUser(User user) {
-        if (user == null) {
-            throw new BusinessException("User cannot be null");
-        }
-
-        if (user.getName() == null || user.getName().trim().isEmpty()) {
-            throw new BusinessException("User name is required");
-        }
-
-        if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
-            throw new BusinessException("User email is required");
-        }
-
-        if (!isValidEmail(user.getEmail())) {
-            throw new BusinessException("Invalid email format");
-        }
-
-        if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
-            throw new BusinessException("User password is required");
-        }
-
-        if (user.getPassword().length() < 6) {
-            throw new BusinessException("Password must be at least 6 characters long");
-        }
-    }
-
-    /**
      * Simple email validation
      * @param email Email to validate
      * @return true if valid, false otherwise
@@ -235,10 +225,65 @@ public class UserServiceImp implements UserService {
     @Override
     @Transactional(readOnly = true)
     public User login(String email, String password) {
-        authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(email, password)
-        );
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+        try {
+            authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(email, password)
+            );
+
+            return userRepository.findByEmail(email)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+
+        } catch (AuthenticationException authEx) {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+
+            if (isLegacyPasswordMatch(user.getPassword(), password)) {
+                user.setPassword(passwordEncoder.encode(password));
+                userRepository.save(user);
+                return user;
+            }
+
+            throw authEx;
+        }
+    }
+
+    private boolean isLegacyPasswordMatch(String storedPassword, String rawPassword) {
+        if (storedPassword == null || rawPassword == null) {
+            return false;
+        }
+
+        // Ignore modern BCrypt hashes; those should be handled by AuthenticationManager.
+        if (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2y$")) {
+            return false;
+        }
+
+        // Legacy plain-text match.
+        if (storedPassword.equals(rawPassword)) {
+            return true;
+        }
+
+        // Legacy SHA-256 hex match (common manual hashing pattern).
+        return sha256Hex(rawPassword).equalsIgnoreCase(storedPassword);
+    }
+
+    private String sha256Hex(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 algorithm is not available", ex);
+        }
+    }
+
+    private void validateRegistrationPassword(String password) {
+        if (password == null || password.isBlank()) {
+            throw new BusinessException("Password is required");
+        }
+
+        String complexityPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{12,128}$";
+        if (!password.matches(complexityPattern)) {
+            throw new BusinessException("Password must be 12+ characters and include uppercase, lowercase, number, and special character");
+        }
     }
 }

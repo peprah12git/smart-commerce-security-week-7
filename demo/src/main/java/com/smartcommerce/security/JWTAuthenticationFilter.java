@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -18,15 +19,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Executes once per request and gates every protected endpoint.
- *
- * Token validation pipeline (all steps are O(1)):
- *   1. Extract raw JWT from the Authorization: Bearer <token> header.
- *   2. Delegate to JwtTokenService.validateToken(), which runs:
- *        a. HMAC-SHA256 signature verification       ← hashing
- *        b. Expiry timestamp comparison              ← O(1) integer compare
- *        c. Blacklist lookup in ConcurrentHashMap    ← O(1) HashMap.containsKey
- *   3. Load UserDetails and store authentication in the SecurityContext.
- *
  * Audit events emitted:
  *   • JWT_VALIDATION_FAILURE — token present but invalid (signature, expiry)
  *   • REVOKED_TOKEN_REUSE    — token is specifically in the blacklist
@@ -42,6 +34,9 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
     private final SecurityAuditService auditService;
     private final LoginAttemptService loginAttemptService;
     private final TokenBlacklistService tokenBlacklistService;
+
+    @Value("${app.auth.cookie.name:AUTH_TOKEN}")
+    private String authCookieName;
 
     public JWTAuthenticationFilter(JwtTokenService jwtTokenService,
                                     CustomUserDetailsService customUserDetailsService,
@@ -83,9 +78,6 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                 // ── Full validation (signature + expiry + blacklist) ──────────
                 if (jwtTokenService.validateToken(token)) {
                     String email = jwtTokenService.getEmailFromToken(token);
-
-                    // Brute-force soft-lock check — reject even valid JWTs while
-                    // the account is locked to prevent token-based bypass.
                     if (loginAttemptService.isBlocked(email)) {
                         auditService.jwtValidationFailure(request,
                                 "Account soft-locked due to repeated failed attempts — username=" + email);
@@ -94,7 +86,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                     }
 
                     var userDetails    = customUserDetailsService.loadUserByUsername(email);
-                    var authentication = new JWTAuthenticationToken(
+                        var authentication = JWTAuthenticationToken.authenticated(
                             userDetails, token, userDetails.getAuthorities());
                     SecurityContextHolder.getContext().setAuthentication(authentication);
 
@@ -104,7 +96,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                             "Token failed signature/expiry validation");
                 }
             }
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             SecurityContextHolder.clearContext();
             log.warn("[AUDIT] JWT filter exception uri={} error={}",
                     request.getRequestURI(), ex.getMessage());
@@ -118,6 +110,15 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
+
+        if (request.getCookies() != null) {
+            for (var cookie : request.getCookies()) {
+                if (authCookieName.equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+
         return null;
     }
 

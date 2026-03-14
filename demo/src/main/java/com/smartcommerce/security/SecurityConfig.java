@@ -6,7 +6,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -26,15 +25,21 @@ public class SecurityConfig {
     private final JWTAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final OAuthLoginSuccesshandler oAuthLoginSuccesshandler;
+    private final OAuthLoginFailureHandler oAuthLoginFailureHandler;
+    private final CustomOAuth2UserService customOAuth2UserService;
     private final AccessDeniedHandlerImpl accessDeniedHandler;
 
     public SecurityConfig(JWTAuthenticationFilter jwtAuthenticationFilter,
                           JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
                           OAuthLoginSuccesshandler oAuthLoginSuccesshandler,
+                          OAuthLoginFailureHandler oAuthLoginFailureHandler,
+                          CustomOAuth2UserService customOAuth2UserService,
                           AccessDeniedHandlerImpl accessDeniedHandler) {
         this.jwtAuthenticationFilter  = jwtAuthenticationFilter;
         this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
         this.oAuthLoginSuccesshandler = oAuthLoginSuccesshandler;
+        this.oAuthLoginFailureHandler = oAuthLoginFailureHandler;
+        this.customOAuth2UserService = customOAuth2UserService;
         this.accessDeniedHandler      = accessDeniedHandler;
     }
 
@@ -42,7 +47,17 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
+                .cors(c-> c.configurationSource(request -> {
+                    org.springframework.web.cors.CorsConfiguration config = new org.springframework.web.cors.CorsConfiguration();
+                    config.setAllowedOrigins(java.util.Arrays.asList(
+                            "http://localhost:3000",
+                            "http://localhost:5173"));
+                    config.setAllowedMethods(java.util.Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+                    config.setAllowedHeaders(java.util.Arrays.asList("*"));
+                    config.setAllowCredentials(true);
+                    config.setMaxAge(3600L);
+                    return config;
+                }))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
 
@@ -62,30 +77,31 @@ public class SecurityConfig {
                         .requestMatchers("/graphql").permitAll()
 
                         // ── Admin only: inventory ─────────────────────────────────────────
-                        .requestMatchers("/api/inventory/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers("/api/inventory/**").hasRole("ADMIN")
 
                         // ── Admin only: product write operations ──────────────────────────
-                        .requestMatchers(HttpMethod.POST, "/api/products/**").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/products/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
 
                         // ── Admin only: category management ───────────────────────────────
-                        .requestMatchers(HttpMethod.POST, "/api/categories/**").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("ADMIN")
 
                         // ── Admin only: order reporting & all-orders views ─────────────────
-                        .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/paged", "/api/orders/reports").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/paged", "/api/orders/reports").hasRole("ADMIN")
                         // DELETE /api/orders/{id} — hard-delete (admin only)
-                        .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasRole("ADMIN")
 
                         // ── Swagger / Actuator ────────────────────────────────────────────
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/actuator/**").permitAll()
-
-                        // ── Everything else requires a valid JWT ──────────────────────────
                         .anyRequest().authenticated()
                 )
-                .oauth2Login(oauth2 -> oauth2.successHandler(oAuthLoginSuccesshandler))
+                .oauth2Login(oauth2 -> oauth2
+                    .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                    .successHandler(oAuthLoginSuccesshandler)
+                    .failureHandler(oAuthLoginFailureHandler))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)   // 401
                         .accessDeniedHandler(accessDeniedHandler))                // 403
@@ -93,9 +109,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /**
-     * DaoAuthenticationProvider uses:
-     */
     @Bean
     AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
@@ -108,9 +121,6 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    /**
-     * BCryptPasswordEncoder — Secure Password Hashing
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
