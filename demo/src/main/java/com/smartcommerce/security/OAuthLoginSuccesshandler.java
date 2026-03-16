@@ -35,7 +35,13 @@ public class OAuthLoginSuccesshandler implements AuthenticationSuccessHandler {
 
     @Value("${app.auth.cookie.max-age-seconds:86400}")
     private long authCookieMaxAgeSeconds;
+/*
+*This handler is invoked by Spring Security after
+*  a successful OAuth2 login. It generates a JWT token for the authenticated user, sets it in an HTTP-only cookie, and redirects the user to the configured success URL.
+* The user's email and role are extracted from the Authentication object to create the JWT token. The redirect URL can be customized via application properties, and if it contains a placeholder for the token,
+*  it will be replaced with the actual token value.
 
+ */
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
