@@ -66,16 +66,15 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             String token = getJwtFromRequest(request);
 
             if (token != null) {
-                // ── Revoked-token reuse detection (O(1) blacklist check) ──────
+                // ── Revoked-token reuse detection (O(1) blacklist check) ──
                 if (tokenBlacklistService.isRevoked(token)) {
                     String username = tryExtractUsername(token);
                     auditService.revokedTokenReuse(username, request);
-                    // Do NOT populate SecurityContext — let the request fail as 401
                     filterChain.doFilter(request, response);
                     return;
                 }
 
-                // ── Full validation (signature + expiry + blacklist) ──────────
+                // ── Full validation (signature + expiry + blacklist) ──
                 if (jwtTokenService.validateToken(token)) {
                     String email = jwtTokenService.getEmailFromToken(token);
                     if (loginAttemptService.isBlocked(email)) {
