@@ -128,7 +128,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = "Access denied",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @GetMapping
+    @GetMapping("/all")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         List<UserResponse> users = UserMapper.toUserResponseList(userService.getAllUsers());
