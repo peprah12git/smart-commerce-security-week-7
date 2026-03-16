@@ -65,18 +65,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // ── Public: auth & registration ──────────────────────────────────
-                        .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-
-                        // ── Authenticated: logout — requires a valid (non-revoked) Bearer token
-                        .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/users","/api/auth/login").permitAll()
 
                         .requestMatchers("/api/auth/**").permitAll()
 
                         // ── Public: browsing ─────────────────────────────────────────────
-                        .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/products/**","/api/categories/**","/api/reviews/**").permitAll()
                         .requestMatchers("/graphql").permitAll()
 
                         // ── Admin only: inventory ─────────────────────────────────────────
@@ -97,7 +91,7 @@ public class SecurityConfig {
                         // DELETE /api/orders/{id} — hard-delete (admin only)
                         .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasRole("ADMIN")
 
-                        // ── Swagger / Actuator ────────────────────────────────────────────
+                        // ── Swagger / Actuator
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
