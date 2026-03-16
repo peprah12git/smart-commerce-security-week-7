@@ -47,6 +47,9 @@ public class AuthController {
         @Value("${app.auth.cookie.secure:false}")
         private boolean authCookieSecure;
 
+                @Value("${jwt.expiration:86400000}")
+                private long jwtExpiration;
+
     public AuthController(UserService userService,
                           JwtTokenService jwtTokenService,
                           SecurityAuditService auditService,
@@ -72,9 +75,6 @@ public class AuthController {
                                    HttpServletRequest request) {
 
         String email = loginRequest.email();
-
-        //  Brute-force soft-lock check
-        // O(1) ConcurrentHashMap lookup via LoginAttemptService.
         // If the account is locked, reject immediately  no DB query needed.
         if (loginAttemptService.isBlocked(email)) {
             auditService.loginFailure(email, request,
@@ -86,9 +86,16 @@ public class AuthController {
         try {
             // 1. Authenticate via AuthenticationManager (BCrypt comparison inside)
             User user = userService.login(email, loginRequest.password());
-
-                        // 2. Generate HMAC-SHA256 signed JWT from authenticated domain user
+                        // 2. Generate  signed JWT from authenticated domain user
                         String token = jwtTokenService.generateToken(user);
+            // 3. ✓ CREATE HTTP-ONLY COOKIE (mirroring logout logic)
+            ResponseCookie authCookie = ResponseCookie.from(authCookieName, token)
+                    .httpOnly(true)
+                    .secure(authCookieSecure)
+                    .path("/")
+                    .sameSite("Strict")
+                    .maxAge(Duration.ofMillis(jwtExpiration))
+                    .build();
 
             // 4. Audit: LOGIN_SUCCESS + reset failure counter
             auditService.loginSuccess(email, request);
@@ -115,11 +122,7 @@ public class AuthController {
 
 
     /**
-     * Revokes the caller's JWT by inserting it into the in-memory blacklist.
-     * Security guarantee: even if the token has not yet expired, it will be
-     * rejected by JwtTokenService.validateToken() â† blacklist check (Step 3).
-     * Also emits a LOGOUT audit event capturing the user, IP, and endpoint.
-     *
+
      * @param authHeader the full Authorization header value ("Bearer &lt;token&gt;")
      * @param request    injected by Spring for IP / URI capture
      * @return 200 with a confirmation message; 400 if no Bearer token supplied

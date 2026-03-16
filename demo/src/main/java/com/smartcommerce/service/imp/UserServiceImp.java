@@ -222,20 +222,17 @@ public class UserServiceImp implements UserService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public User login(String email, String password) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
         try {
             authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, password)
             );
-
-            return userRepository.findByEmail(email)
-                    .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+            return user;
 
         } catch (AuthenticationException authEx) {
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
-
             if (isLegacyPasswordMatch(user.getPassword(), password)) {
                 user.setPassword(passwordEncoder.encode(password));
                 userRepository.save(user);
