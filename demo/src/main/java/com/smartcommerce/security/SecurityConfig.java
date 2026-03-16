@@ -28,19 +28,22 @@ public class SecurityConfig {
     private final OAuthLoginFailureHandler oAuthLoginFailureHandler;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final AccessDeniedHandlerImpl accessDeniedHandler;
+    private final CustomUserDetailsService customUserDetailsService;
 
     public SecurityConfig(JWTAuthenticationFilter jwtAuthenticationFilter,
                           JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
                           OAuthLoginSuccesshandler oAuthLoginSuccesshandler,
                           OAuthLoginFailureHandler oAuthLoginFailureHandler,
                           CustomOAuth2UserService customOAuth2UserService,
-                          AccessDeniedHandlerImpl accessDeniedHandler) {
+                          AccessDeniedHandlerImpl accessDeniedHandler,
+                          CustomUserDetailsService customUserService) {
         this.jwtAuthenticationFilter  = jwtAuthenticationFilter;
         this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
         this.oAuthLoginSuccesshandler = oAuthLoginSuccesshandler;
         this.oAuthLoginFailureHandler = oAuthLoginFailureHandler;
         this.customOAuth2UserService = customOAuth2UserService;
         this.accessDeniedHandler      = accessDeniedHandler;
+        this.customUserDetailsService = customUserService;
     }
 
     @Bean
@@ -110,8 +113,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+    AuthenticationProvider authenticationProvider(CustomUserDetailsService customUserDetailsService) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(customUserDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }

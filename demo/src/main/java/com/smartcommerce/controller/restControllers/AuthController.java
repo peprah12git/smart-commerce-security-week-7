@@ -60,7 +60,7 @@ public class AuthController {
 
     @Operation(summary = "Login", description = "Authenticates user and returns a signed JWT token")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Login successful â€” JWT token returned",
+            @ApiResponse(responseCode = "200", description = "Login successful ” JWT token returned",
                     content = @Content(schema = @Schema(implementation = LoginResponseDTO.class))),
             @ApiResponse(responseCode = "401", description = "Invalid credentials",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -73,9 +73,9 @@ public class AuthController {
 
         String email = loginRequest.email();
 
-        // â”€â”€ Brute-force soft-lock check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Brute-force soft-lock check
         // O(1) ConcurrentHashMap lookup via LoginAttemptService.
-        // If the account is locked, reject immediately â€” no DB query needed.
+        // If the account is locked, reject immediately  no DB query needed.
         if (loginAttemptService.isBlocked(email)) {
             auditService.loginFailure(email, request,
                     "Account is temporarily locked due to too many failed attempts");
@@ -105,7 +105,7 @@ public class AuthController {
             return ResponseEntity.ok(response);
 
                 } catch (RuntimeException ex) {
-            // 5. Audit: LOGIN_FAILURE â€” record failure, check if brute-force threshold crossed
+            // 5. Audit: LOGIN_FAILURE ” record failure, check if brute-force threshold crossed
             auditService.loginFailure(email, request, ex.getMessage());
 
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -118,7 +118,6 @@ public class AuthController {
      * Revokes the caller's JWT by inserting it into the in-memory blacklist.
      * Security guarantee: even if the token has not yet expired, it will be
      * rejected by JwtTokenService.validateToken() â† blacklist check (Step 3).
-     *
      * Also emits a LOGOUT audit event capturing the user, IP, and endpoint.
      *
      * @param authHeader the full Authorization header value ("Bearer &lt;token&gt;")

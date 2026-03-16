@@ -119,7 +119,6 @@ public class UserServiceImp implements UserService {
 
     /**
      * Updates an existing user
-     *
      * @param userId      User ID to update
      * @param userDetails Updated user details
      * @return Updated user

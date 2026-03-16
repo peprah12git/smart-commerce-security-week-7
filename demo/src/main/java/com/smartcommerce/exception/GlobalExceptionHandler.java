@@ -29,8 +29,20 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
+     * Helper method to build consistent error responses.
+     */
+    private ErrorResponse buildError(HttpStatus status, String message, String path) {
+        return ErrorResponse.builder()
+                .status(status.value())
+                .error(status.getReasonPhrase())
+                .message(message)
+                .path(path)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    /**
      * Handles @Valid request body validation failures.
-     * Returns field-level error details.
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ValidationErrorResponse> handleValidationException(
@@ -61,12 +73,14 @@ public class GlobalExceptionHandler {
             ConstraintViolationException ex, HttpServletRequest request) {
 
         Map<String, String> fieldErrors = new HashMap<>();
+
         ex.getConstraintViolations().forEach(violation -> {
             String fieldName = violation.getPropertyPath().toString();
-            // Extract just the parameter name from the full path
+
             if (fieldName.contains(".")) {
                 fieldName = fieldName.substring(fieldName.lastIndexOf('.') + 1);
             }
+
             fieldErrors.put(fieldName, violation.getMessage());
         });
 
@@ -89,15 +103,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleResourceNotFound(
             ResourceNotFoundException ex, HttpServletRequest request) {
 
-        ErrorResponse response = ErrorResponse.builder()
-                .status(HttpStatus.NOT_FOUND.value())
-                .error("Not Found")
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(buildError(
+                        HttpStatus.NOT_FOUND,
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
     }
 
     /**
@@ -107,33 +118,27 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDuplicateResource(
             DuplicateResourceException ex, HttpServletRequest request) {
 
-        ErrorResponse response = ErrorResponse.builder()
-                .status(HttpStatus.CONFLICT.value())
-                .error("Conflict")
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(buildError(
+                        HttpStatus.CONFLICT,
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
     }
 
     /**
-     * Handles invalid login credentials — returns 401 instead of 500.
+     * Handles invalid login credentials.
      */
     @ExceptionHandler({BadCredentialsException.class, AuthenticationException.class})
     public ResponseEntity<ErrorResponse> handleBadCredentials(
             Exception ex, HttpServletRequest request) {
 
-        ErrorResponse response = ErrorResponse.builder()
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .error("Unauthorized")
-                .message("Invalid email or password")
-                .path(request.getRequestURI())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(buildError(
+                        HttpStatus.UNAUTHORIZED,
+                        "Invalid email or password",
+                        request.getRequestURI()
+                ));
     }
 
     /**
@@ -143,15 +148,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBusinessException(
             BusinessException ex, HttpServletRequest request) {
 
-        ErrorResponse response = ErrorResponse.builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Bad Request")
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return ResponseEntity.badRequest().body(response);
+        return ResponseEntity.badRequest()
+                .body(buildError(
+                        HttpStatus.BAD_REQUEST,
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
     }
 
     /**
@@ -161,15 +163,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMessageNotReadable(
             HttpMessageNotReadableException ex, HttpServletRequest request) {
 
-        ErrorResponse response = ErrorResponse.builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Bad Request")
-                .message("Malformed JSON request or unreadable request body")
-                .path(request.getRequestURI())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return ResponseEntity.badRequest().body(response);
+        return ResponseEntity.badRequest()
+                .body(buildError(
+                        HttpStatus.BAD_REQUEST,
+                        "Malformed JSON request or unreadable request body",
+                        request.getRequestURI()
+                ));
     }
 
     /**
@@ -179,19 +178,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleTypeMismatch(
             MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
 
-        String message = String.format("Parameter '%s' should be of type '%s'",
+        String message = String.format(
+                "Parameter '%s' should be of type '%s'",
                 ex.getName(),
-                ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
+                ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown"
+        );
 
-        ErrorResponse response = ErrorResponse.builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Bad Request")
-                .message(message)
-                .path(request.getRequestURI())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return ResponseEntity.badRequest().body(response);
+        return ResponseEntity.badRequest()
+                .body(buildError(
+                        HttpStatus.BAD_REQUEST,
+                        message,
+                        request.getRequestURI()
+                ));
     }
 
     /**
@@ -200,16 +198,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(
             Exception ex, HttpServletRequest request) {
+
         log.error("Unhandled exception at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
 
-        ErrorResponse response = ErrorResponse.builder()
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .error("Internal Server Error")
-                .message("An unexpected error occurred. Please try again later.")
-                .path(request.getRequestURI())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(buildError(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "An unexpected error occurred. Please try again later.",
+                        request.getRequestURI()
+                ));
     }
 }

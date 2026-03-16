@@ -82,7 +82,7 @@ public class JwtTokenService {
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
                 .signWith(getSigningKey())
-                .compact();
+                .compact(); // converts it to a string
     }
 
     // ─────────────────────────────────────────────────────────────────────────
