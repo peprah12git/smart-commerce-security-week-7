@@ -4,9 +4,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.smartcommerce.dtos.request.CreateOrderDTO;
-import com.smartcommerce.dtos.request.OrderItemDTO;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -14,6 +13,8 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.smartcommerce.dtos.request.CreateOrderDTO;
+import com.smartcommerce.dtos.request.OrderItemDTO;
 import com.smartcommerce.exception.BusinessException;
 import com.smartcommerce.exception.ResourceNotFoundException;
 import com.smartcommerce.model.CartItem;
@@ -21,6 +22,8 @@ import com.smartcommerce.model.Order;
 import com.smartcommerce.model.OrderItem;
 import com.smartcommerce.model.Product;
 import com.smartcommerce.model.User;
+import com.smartcommerce.notification.OrderNotificationEvent;
+import com.smartcommerce.notification.OrderNotificationType;
 import com.smartcommerce.repositories.OrderItemRepository;
 import com.smartcommerce.repositories.OrderRepository;
 import com.smartcommerce.repositories.ProductRepository;
@@ -39,6 +42,7 @@ public class OrderServiceImp implements OrderService {
     private final ProductRepository productRepository;
     private final InventoryServiceInterface inventoryService;
     private final CartItemService cartItemService;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final List<String> VALID_STATUSES = List.of(
             "pending", "confirmed", "processing", "shipped", "delivered", "cancelled"
@@ -50,13 +54,15 @@ public class OrderServiceImp implements OrderService {
                            UserRepository userRepository,
                            ProductRepository productRepository,
                            InventoryServiceInterface inventoryService,
-                           CartItemService cartItemService) {
+                           CartItemService cartItemService,
+                           ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
         this.inventoryService = inventoryService;
         this.cartItemService = cartItemService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -88,6 +94,7 @@ public class OrderServiceImp implements OrderService {
             item.setProduct(product);
             item.setQuantity(itemDTO.quantity());
             item.setUnitPrice(itemDTO.unitPrice() != null ? itemDTO.unitPrice() : product.getPrice());
+            item.setSubtotal(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
 
             totalAmount = totalAmount.add(item.getUnitPrice().multiply(new BigDecimal(item.getQuantity())));
             orderItems.add(item);
@@ -110,6 +117,7 @@ public class OrderServiceImp implements OrderService {
         }
 
         savedOrder.setOrderItems(orderItems);
+        publishOrderNotification(savedOrder, OrderNotificationType.ORDER_CREATED);
         return savedOrder;
     }
 
@@ -153,7 +161,9 @@ public class OrderServiceImp implements OrderService {
 
         order.setStatus(normalizedStatus);
         orderRepository.save(order);
-        return getOrderById(orderId);
+        Order updatedOrder = getOrderById(orderId);
+        publishOrderNotification(updatedOrder, OrderNotificationType.ORDER_STATUS_UPDATED);
+        return updatedOrder;
     }
 
     @Override
@@ -184,7 +194,9 @@ public class OrderServiceImp implements OrderService {
             }
         }
 
-        return getOrderById(orderId);
+        Order cancelledOrder = getOrderById(orderId);
+        publishOrderNotification(cancelledOrder, OrderNotificationType.ORDER_CANCELLED);
+        return cancelledOrder;
     }
 
     @Override
@@ -245,6 +257,7 @@ public class OrderServiceImp implements OrderService {
                     orderItem.setProduct(product);
                     orderItem.setQuantity(cartItem.getQuantity());
                     orderItem.setUnitPrice(product.getPrice());
+                    orderItem.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
                     return orderItem;
                 })
                 .toList();
@@ -265,7 +278,26 @@ public class OrderServiceImp implements OrderService {
 
         // No need to re-fetch — set what we already have
         savedOrder.setOrderItems(orderItems);
+        publishOrderNotification(savedOrder, OrderNotificationType.ORDER_CHECKOUT_COMPLETED);
         return savedOrder;
+    }
+
+    private void publishOrderNotification(Order order, OrderNotificationType type) {
+        if (order == null || order.getUser() == null) {
+            return;
+        }
+
+        OrderNotificationEvent event = new OrderNotificationEvent(
+                order.getOrderId(),
+                order.getUser().getName(),
+                order.getUser().getEmail(),
+                order.getStatus(),
+                order.getTotalAmount(),
+                order.getOrderDate(),
+                type
+        );
+
+        eventPublisher.publishEvent(event);
     }
 
     @Override

@@ -13,9 +13,9 @@ const OrderService = {
     return response.data;
   },
 
-  // Get orders by user
-  getOrdersByUser: async (userId) => {
-    const response = await api.get(`/orders/user/${userId}`);
+  // Get current user's orders
+  getOrdersByUser: async () => {
+    const response = await api.get('/orders/me');
     return response.data;
   },
 
@@ -31,9 +31,9 @@ const OrderService = {
     return response.data;
   },
 
-  // Cancel order (DELETE cancellation resource)
+  // Cancel order
   cancelOrder: async (orderId) => {
-    const response = await api.delete(`/orders/${orderId}/cancellation`);
+    const response = await api.post(`/orders/${orderId}/cancellations`);
     return response.data;
   },
 
@@ -50,7 +50,7 @@ const OrderService = {
 
   // Create order from cart
   checkoutFromCart: async (userId) => {
-    const response = await api.post(`/orders/from-cart`);
+    const response = await api.post(`/orders/checkout`);
     return response.data;
   },
 };

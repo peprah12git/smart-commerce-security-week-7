@@ -19,8 +19,7 @@ const Orders = () => {
 
   const fetchOrders = async () => {
     try {
-      const userId = user?.userId || user?.user_id;
-      const data = await OrderService.getOrdersByUser(userId);
+      const data = await OrderService.getOrdersByUser();
       setOrders(data);
     } catch (error) {
       console.error('Failed to fetch orders:', error);

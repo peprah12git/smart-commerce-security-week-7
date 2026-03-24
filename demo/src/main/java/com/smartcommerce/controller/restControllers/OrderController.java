@@ -1,6 +1,8 @@
 package com.smartcommerce.controller.restControllers;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -8,7 +10,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -125,14 +131,42 @@ public class OrderController {
                         @ApiResponse(responseCode = "200", description = "Order retrieved successfully", content = @Content(schema = @Schema(implementation = OrderResponse.class))),
                         @ApiResponse(responseCode = "404", description = "Order not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
         })
-        @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+        @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'CUSTOMER')")
         @GetMapping("/{orderId}")
         public ResponseEntity<OrderResponse> getOrderById(
                         @Parameter(description = "Order ID", required = true, example = "1") @PathVariable int orderId) {
 
                 Order order = orderService.getOrderById(orderId);
+
+                // Customers can only access their own orders.
+                if (!currentUserHasAnyRole("ADMIN", "STAFF")) {
+                        int currentUserId = securityUtils.getCurrentUserId();
+                        if (order.getUser() == null || order.getUser().getUserId() != currentUserId) {
+                                throw new AccessDeniedException("Access Denied");
+                        }
+                }
+
                 OrderResponse response = OrderMapper.toOrderResponse(order);
                 return ResponseEntity.ok(response);
+        }
+
+        private boolean currentUserHasAnyRole(String... roles) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication == null) {
+                        return false;
+                }
+
+                Set<String> authorities = authentication.getAuthorities().stream()
+                                .map(GrantedAuthority::getAuthority)
+                                .collect(Collectors.toSet());
+
+                for (String role : roles) {
+                        if (authorities.contains("ROLE_" + role)) {
+                                return true;
+                        }
+                }
+
+                return false;
         }
 
         /**

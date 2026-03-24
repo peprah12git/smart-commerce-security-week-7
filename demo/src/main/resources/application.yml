@@ -35,6 +35,18 @@ spring:
             client-secret: ${OAUTH-CLIENT-SECRET}
             scope: email, profile
 
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+
 # ── JWT ──────────────────────────────────────────────────────────────────────
 # jwt.secret must be a Base64-encoded HMAC-SHA256 key (≥ 32 decoded bytes).
 # Set the JWT_SECRET environment variable in every environment.
@@ -55,4 +67,8 @@ app:
       name: ${AUTH_COOKIE_NAME:AUTH_TOKEN}
       secure: ${AUTH_COOKIE_SECURE:false}
       max-age-seconds: ${AUTH_COOKIE_MAX_AGE_SECONDS:86400}
+
+notifications:
+  email:
+    enabled: ${NOTIFICATIONS_EMAIL_ENABLED:false}
 

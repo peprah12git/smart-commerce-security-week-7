@@ -21,3 +21,7 @@ logging:
   level:
     com.smartcommerce: INFO
     org.hibernate.SQL: DEBUG
+
+notifications:
+  email:
+    enabled: false

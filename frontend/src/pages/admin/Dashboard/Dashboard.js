@@ -21,7 +21,7 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const products = await ProductService.getAllProducts();
-      const outOfStock = products.filter((p) => p.quantityAvailable === 0).length;
+      const outOfStock = products.filter((p) => (p.inventory?.quantityAvailable || 0) === 0).length;
 
       setStats({
         totalProducts: products.length,
@@ -137,10 +137,10 @@ const Dashboard = () => {
                       <td>
                         <span
                           className={`badge ${
-                            product.quantityAvailable > 0 ? 'badge-success' : 'badge-danger'
+                            (product.inventory?.quantityAvailable || 0) > 0 ? 'badge-success' : 'badge-danger'
                           }`}
                         >
-                          {product.quantityAvailable}
+                          {product.inventory?.quantityAvailable || 0}
                         </span>
                       </td>
                     </tr>
