@@ -2,15 +2,15 @@ package com.smartcommerce.controller.graphiqlController;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import com.smartcommerce.model.Inventory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.graphql.data.method.annotation.Argument;
-import org.springframework.graphql.data.method.annotation.MutationMapping;
-import org.springframework.graphql.data.method.annotation.QueryMapping;
-import org.springframework.graphql.data.method.annotation.SchemaMapping;
+import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -188,31 +188,30 @@ public class ProductGraphQLController {
      * Resolve categoryId field for Product type
      * Extracts category ID from Product.category
      */
-    @SchemaMapping(typeName = "Product", field = "categoryId")
-    @Transactional(readOnly = true)
-    public Integer categoryId(Product product) {
-        return product.getCategory() != null ? product.getCategory().getCategoryId() : null;
+    @BatchMapping(typeName = "Product", field = "categoryId")
+    public Map<Product, Integer> categoryId(List<Product> products) {
+        return products.stream()
+                .collect(Collectors.toMap(
+                        p -> p,
+                        p -> p.getCategory() != null ? p.getCategory().getCategoryId() : null
+                ));
     }
 
-    /**
-     * Resolve categoryName field for Product type
-     * Extracts category name from Product.category
-     */
-    @SchemaMapping(typeName = "Product", field = "categoryName")
-    @Transactional(readOnly = true)
-    public String categoryName(Product product) {
-        return product.getCategory() != null ? product.getCategory().getCategoryName() : null;
+    @BatchMapping(typeName = "Product", field = "categoryName")
+    public Map<Product, String> categoryName(List<Product> products) {
+        return products.stream()
+                .collect(Collectors.toMap(
+                        p -> p,
+                        p -> p.getCategory() != null ? p.getCategory().getCategoryName() : null
+                ));
     }
-
-    /**
-     * Resolve inventory field for Product type
-     * Fetches inventory data for the product
-     */
-    @SchemaMapping(typeName = "Product", field = "inventory")
-    @Transactional(readOnly = true)
-    public com.smartcommerce.model.Inventory inventory(Product product) {
-        return product.getInventory();
+    @BatchMapping(typeName = "Product", field = "inventory")
+    public Map<Product, Inventory> inventory(List<Product> products) {
+        return products.stream()
+                .collect(Collectors.toMap(
+                        p -> p,
+                        p -> p.getInventory()
+                ));
     }
-
 
 }

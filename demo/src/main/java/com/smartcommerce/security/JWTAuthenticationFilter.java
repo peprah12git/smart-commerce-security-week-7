@@ -56,7 +56,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
         try {
-            // ── Rate-limit check ─────────────────────────────────────────────
+            // ── Rate-limit check ───────
             boolean rateLimitBreached = auditService.trackRequest(request);
             if (rateLimitBreached) {
                 String ip = SecurityAuditService.resolveClientIp(request);

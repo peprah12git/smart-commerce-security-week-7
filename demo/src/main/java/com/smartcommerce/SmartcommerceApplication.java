@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableAspectJAutoProxy
 @EnableCaching
-@EnableScheduling   // Activates @Scheduled in TokenBlacklistService (expired-token eviction every 30 min)
+@EnableScheduling
 public class SmartcommerceApplication {
 
 	public static void main(String[] args) {

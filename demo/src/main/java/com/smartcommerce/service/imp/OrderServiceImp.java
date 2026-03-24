@@ -216,43 +216,55 @@ public class OrderServiceImp implements OrderService {
             throw new BusinessException("Cart is empty");
         }
 
-        BigDecimal totalAmount = BigDecimal.ZERO;
+        // Validate stock for ALL items first, before touching anything
         for (CartItem cartItem : cartItems) {
             Product product = cartItem.getProduct();
-
             if (!inventoryService.hasEnoughStock(product.getProductId(), cartItem.getQuantity())) {
                 throw new BusinessException("Insufficient stock for product: " + product.getName());
             }
-
-            totalAmount = totalAmount.add(product.getPrice().multiply(new BigDecimal(cartItem.getQuantity())));
         }
+
+        // Build order
+        BigDecimal totalAmount = cartItems.stream()
+                .map(item -> item.getProduct().getPrice()
+                        .multiply(new BigDecimal(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         Order order = new Order();
         order.setUser(user);
         order.setStatus("confirmed");
         order.setTotalAmount(totalAmount);
-
         Order savedOrder = orderRepository.save(order);
 
+        // Build all OrderItems in memory, then batch save
+        List<OrderItem> orderItems = cartItems.stream()
+                .map(cartItem -> {
+                    Product product = cartItem.getProduct();
+                    OrderItem orderItem = new OrderItem();
+                    orderItem.setOrder(savedOrder);
+                    orderItem.setProduct(product);
+                    orderItem.setQuantity(cartItem.getQuantity());
+                    orderItem.setUnitPrice(product.getPrice());
+                    return orderItem;
+                })
+                .toList();
+
+        orderItemRepository.saveAll(orderItems); // single batch INSERT
+
+        // Reduce stock for all items
         for (CartItem cartItem : cartItems) {
-            Product product = cartItem.getProduct();
-
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrder(savedOrder);
-            orderItem.setProduct(product);
-            orderItem.setQuantity(cartItem.getQuantity());
-            orderItem.setUnitPrice(product.getPrice());
-            orderItemRepository.save(orderItem);
-
-            boolean stockReduced = inventoryService.reduceStock(product.getProductId(), cartItem.getQuantity());
+            boolean stockReduced = inventoryService.reduceStock(
+                    cartItem.getProduct().getProductId(), cartItem.getQuantity());
             if (!stockReduced) {
-                throw new BusinessException("Failed to reduce stock for product: " + product.getName());
+                throw new BusinessException("Failed to reduce stock for product: "
+                        + cartItem.getProduct().getName());
             }
         }
 
         cartItemService.clearCart(userId);
 
-        savedOrder.setOrderItems(orderItemRepository.findByOrderOrderId(savedOrder.getOrderId()));
+        // No need to re-fetch — set what we already have
+        savedOrder.setOrderItems(orderItems);
         return savedOrder;
     }
 
