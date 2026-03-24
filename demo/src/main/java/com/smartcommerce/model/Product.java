@@ -13,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 @Entity
 @Table(name = "Products", indexes = {
     @Index(name = "idx_products_name", columnList = "name"),
+        @Index(name = "idx_product_price", columnList = "price"),
     @Index(name = "idx_products_category", columnList = "category_id")
 })
 @Getter
