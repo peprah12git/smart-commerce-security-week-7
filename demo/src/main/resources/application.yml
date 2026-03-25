@@ -20,9 +20,14 @@ spring:
     password: ${DB-PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  logging:
+    level:
+      org.hibernate.SQL: DEBUG
+      org.hibernate.orm.jdbc.bind: TRACE
+
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     show-sql: false
     open-in-view: false
 

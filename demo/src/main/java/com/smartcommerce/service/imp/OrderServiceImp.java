@@ -301,23 +301,23 @@ public class OrderServiceImp implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<Order> getAllOrders(Pageable pageable) {
-        Page<Order> ordersPage = orderRepository.findAll(pageable);
+        Page<Integer> orderIdsPage = orderRepository.findAll(pageable)
+                .map(Order::getOrderId);
 
-        List<Integer> orderIds = ordersPage.getContent().stream()
-                .map(Order::getOrderId)
-                .toList();
+        List<Integer> orderIds = orderIdsPage.getContent();
 
         if (!orderIds.isEmpty()) {
             List<Order> ordersWithItems = orderRepository.findByOrderIdsWithItems(orderIds);
-            return ordersPage.map(order ->
+            return orderIdsPage.map(orderId ->
                     ordersWithItems.stream()
-                            .filter(o -> o.getOrderId() == order.getOrderId())
+                            .filter(o -> o.getOrderId() == orderId)
                             .findFirst()
-                            .orElse(order)
+                            .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId))
             );
         }
-        return ordersPage;
+        return Page.empty(pageable);
     }
 
     @Override

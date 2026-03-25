@@ -13,9 +13,22 @@ const OrderService = {
     return response.data;
   },
 
-  // Get current user's orders
+  // Get current user's orders (non-paginated - legacy)
   getOrdersByUser: async () => {
     const response = await api.get('/orders/me');
+    return response.data;
+  },
+
+  // Get current user's orders with pagination (RECOMMENDED)
+  getOrdersByUserPaged: async (page = 0, size = 10, status = null) => {
+    const params = new URLSearchParams({
+      page,
+      size,
+    });
+    if (status) {
+      params.append('status', status);
+    }
+    const response = await api.get(`/orders/me/paged?${params}`);
     return response.data;
   },
 

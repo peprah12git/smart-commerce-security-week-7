@@ -10,22 +10,52 @@ const Orders = () => {
   const { user, showNotification } = useApp();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize] = useState(10);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
     if (user?.userId || user?.user_id) {
-      fetchOrders();
+      // Reset pagination on user change and fetch first page
+      setOrders([]);
+      setCurrentPage(0);
+      fetchOrdersPage(0);
     }
   }, [user]);
 
-  const fetchOrders = async () => {
+  const fetchOrdersPage = async (pageNum) => {
     try {
-      const data = await OrderService.getOrdersByUser();
-      setOrders(data);
+      pageNum === 0 ? setLoading(true) : setLoadingMore(true);
+      const response = await OrderService.getOrdersByUserPaged(pageNum, pageSize);
+      
+      // response should be a PagedResponse with content, totalPages, etc.
+      const newOrders = response.content || response;
+      const respTotalPages = response.totalPages || 1;
+      
+      if (pageNum === 0) {
+        // First page: replace
+        setOrders(newOrders);
+      } else {
+        // Subsequent pages: append
+        setOrders((prev) => [...prev, ...newOrders]);
+      }
+      
+      setTotalPages(respTotalPages);
+      setCurrentPage(pageNum);
+      setHasMore(pageNum < respTotalPages - 1);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
       showNotification('Failed to load orders', 'error');
     } finally {
-      setLoading(false);
+      pageNum === 0 ? setLoading(false) : setLoadingMore(false);
+    }
+  };
+
+  const loadMoreOrders = () => {
+    if (hasMore && !loadingMore) {
+      fetchOrdersPage(currentPage + 1);
     }
   };
 
@@ -130,6 +160,21 @@ const Orders = () => {
                 </div>
               </div>
             ))}
+
+            {hasMore && (
+              <div className="pagination-controls">
+                <button
+                  onClick={loadMoreOrders}
+                  disabled={loadingMore}
+                  className="btn btn-primary"
+                >
+                  {loadingMore ? 'Loading...' : 'Load More Orders'}
+                </button>
+                <p className="pagination-info">
+                  Showing {orders.length} of {totalPages * pageSize}+ orders
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

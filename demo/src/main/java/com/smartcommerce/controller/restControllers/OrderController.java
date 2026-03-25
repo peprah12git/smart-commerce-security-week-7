@@ -15,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -52,6 +53,7 @@ import jakarta.validation.Valid;
  * Handles HTTP requests for order CRUD operations
  * Base URL: /api/orders
  */
+@Transactional
 @RestController
 @RequestMapping("/api/orders")
 @Tag(name = "Orders", description = "Order management API — create, view, update status, and cancel orders")
@@ -110,6 +112,7 @@ public class OrderController {
          */
         @Operation(summary = "Get all orders (paginated)", description = "Retrieves all orders with pagination. Default page size is 10, sorted by order date descending.")
         @ApiResponse(responseCode = "200", description = "Paginated orders retrieved successfully")
+        @Transactional(readOnly = true)
         @PreAuthorize("hasRole('ADMIN')")
         @GetMapping("/paged")
         public ResponseEntity<PagedResponse<OrderResponse>> getAllOrdersPaged(

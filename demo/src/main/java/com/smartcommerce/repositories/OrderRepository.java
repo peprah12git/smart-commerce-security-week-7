@@ -76,6 +76,7 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     Page<Integer> findOrderIdsByUserId(@Param("userId") int userId, Pageable pageable);
 
     @Query("SELECT DISTINCT o FROM Order o " +
+            "LEFT JOIN FETCH o.user " +
             "LEFT JOIN FETCH o.orderItems oi " +
             "LEFT JOIN FETCH oi.product " +
             "WHERE o.orderId IN :orderIds " +
