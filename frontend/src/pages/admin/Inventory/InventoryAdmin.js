@@ -27,7 +27,8 @@ const InventoryAdmin = () => {
     setLoading(true);
     try {
       const data = await ProductService.getAllProducts();
-      setProducts(data);
+      const normalized = Array.isArray(data) ? data : (data?.content || []);
+      setProducts(normalized);
     } catch (error) {
       console.error('Failed to fetch products:', error);
       showNotification('Failed to load inventory', 'error');
@@ -71,15 +72,17 @@ const InventoryAdmin = () => {
   };
 
   const getFilteredProducts = () => {
+    const source = Array.isArray(products) ? products : [];
+
     switch (filter) {
       case 'low':
-        return products.filter(
+        return source.filter(
           (p) => p.inventory?.quantityAvailable > 0 && p.inventory?.quantityAvailable <= LOW_STOCK_THRESHOLD
         );
       case 'out':
-        return products.filter((p) => p.inventory?.quantityAvailable === 0);
+        return source.filter((p) => p.inventory?.quantityAvailable === 0);
       default:
-        return products;
+        return source;
     }
   };
 

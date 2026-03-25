@@ -86,8 +86,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("ADMIN")
 
-                        // ── Admin only: order reporting & all-orders views ─────────────────
-                        .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/paged", "/api/orders/reports").hasRole("ADMIN")
+                        // ── Admin/staff: order reporting & all-orders views ─────────────────
+                        .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/paged", "/api/orders/reports").hasAnyRole("ADMIN", "STAFF")
                         // DELETE /api/orders/{id} — hard-delete (admin only)
                         .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasRole("ADMIN")
 

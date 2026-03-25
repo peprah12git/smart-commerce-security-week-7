@@ -13,7 +13,12 @@ const api = axios.create({
 // Request interceptor - attach JWT token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token') || localStorage.getItem('adminToken');
+    const isAdminRoute = window.location.pathname.startsWith('/admin');
+    const token = isAdminRoute
+      ? (localStorage.getItem('adminToken') || localStorage.getItem('token'))
+      : (localStorage.getItem('token') || localStorage.getItem('adminToken'));
+      console.log('Token found:', token ? 'YES' : 'NO - TOKEN IS MISSING');
+          console.log('Request:', config.method?.toUpperCase(), config.url);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 
 @Entity
-@Table(name = "CartItems",
+@Table(name = "cart_items",
         indexes = {
                 @Index(name = "idx_cart_user", columnList = "user_id"),
                 @Index(name = "idx_cart_product", columnList = "product_id")

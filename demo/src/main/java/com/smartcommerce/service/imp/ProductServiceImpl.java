@@ -254,20 +254,14 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public Page<Product> getProductsWithFilters(Pageable pageable, ProductFilterDTO filters) {
-        if (filters == null || !filters.hasFilters()) {
-            return productRepository.findAll(pageable);
-        }
+        String category = filters != null ? filters.category() : null;
+        BigDecimal minPrice = filters != null ? filters.minPrice() : null;
+        BigDecimal maxPrice = filters != null ? filters.maxPrice() : null;
+        String searchTerm = filters != null ? filters.searchTerm() : null;
 
-        Sort sort = pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.ASC, "productId");
-        List<Product> allProducts = productRepository.findAll(sort);
-        List<Product> filteredProducts = applyFilters(allProducts, filters);
-
-        // Apply pagination manually
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), filteredProducts.size());
-        List<Product> pageContent = filteredProducts.subList(start, end);
-
-        return new PageImpl<>(pageContent, pageable, filteredProducts.size());
+        return productRepository.findProductsWithFilters(
+                category, minPrice, maxPrice, searchTerm, pageable
+        );
     }
 
     @Override

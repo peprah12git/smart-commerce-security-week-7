@@ -1,5 +1,6 @@
 package com.smartcommerce.repositories;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -32,5 +33,19 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     @Query("SELECT p FROM Product p JOIN FETCH p.category WHERE p.name LIKE %:term% OR p.description LIKE %:term%")
     List<Product> searchProducts(@Param("term") String term);
+
+    @Query("SELECT p FROM Product p JOIN FETCH p.category c WHERE " +
+            "(:category IS NULL OR LOWER(c.categoryName) = LOWER(:category)) AND " +
+            "(:minPrice IS NULL OR p.price >= :minPrice) AND " +
+            "(:maxPrice IS NULL OR p.price <= :maxPrice) AND " +
+            "(:searchTerm IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
+            "OR LOWER(p.description) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    Page<Product> findProductsWithFilters(
+            @Param("category") String category,
+            @Param("minPrice") BigDecimal minPrice,
+            @Param("maxPrice") BigDecimal maxPrice,
+            @Param("searchTerm") String searchTerm,
+            Pageable pageable
+    );
 
 }

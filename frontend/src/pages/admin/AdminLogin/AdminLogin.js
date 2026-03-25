@@ -42,6 +42,8 @@ const AdminLogin = () => {
         throw new Error('Access denied. Admin privileges required.');
       }
 
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       localStorage.setItem('adminToken', data.token);
       localStorage.setItem('adminUser', JSON.stringify(userObj));
       setUser(userObj);
