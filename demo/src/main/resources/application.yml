@@ -75,5 +75,5 @@ app:
 
 notifications:
   email:
-    enabled: ${NOTIFICATIONS_EMAIL_ENABLED:false}
+    enabled: ${NOTIFICATIONS_EMAIL_ENABLED:true}
 

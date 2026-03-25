@@ -43,6 +43,7 @@ public class OrderServiceImp implements OrderService {
     private final InventoryServiceInterface inventoryService;
     private final CartItemService cartItemService;
     private final ApplicationEventPublisher eventPublisher;
+    private final InvoiceService invoiceService;
 
     private static final List<String> VALID_STATUSES = List.of(
             "pending", "confirmed", "processing", "shipped", "delivered", "cancelled"
@@ -55,7 +56,8 @@ public class OrderServiceImp implements OrderService {
                            ProductRepository productRepository,
                            InventoryServiceInterface inventoryService,
                            CartItemService cartItemService,
-                           ApplicationEventPublisher eventPublisher) {
+                           ApplicationEventPublisher eventPublisher,
+                           InvoiceService invoiceService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.userRepository = userRepository;
@@ -63,6 +65,7 @@ public class OrderServiceImp implements OrderService {
         this.inventoryService = inventoryService;
         this.cartItemService = cartItemService;
         this.eventPublisher = eventPublisher;
+        this.invoiceService = invoiceService;
     }
 
     @Override
@@ -118,6 +121,17 @@ public class OrderServiceImp implements OrderService {
 
         savedOrder.setOrderItems(orderItems);
         publishOrderNotification(savedOrder, OrderNotificationType.ORDER_CREATED);
+
+        // Async invoice generation with non-blocking error handling
+        invoiceService.generateInvoiceAsync(savedOrder)
+                .handle((filePath, ex) -> {
+                    if (ex != null) {
+                        System.err.println("Invoice generation failed for order "
+                                + savedOrder.getOrderId() + ": " + ex.getMessage());
+                    }
+                    return null;
+                });
+
         return savedOrder;
     }
 
@@ -279,6 +293,16 @@ public class OrderServiceImp implements OrderService {
         // No need to re-fetch — set what we already have
         savedOrder.setOrderItems(orderItems);
         publishOrderNotification(savedOrder, OrderNotificationType.ORDER_CHECKOUT_COMPLETED);
+
+        // Async invoice generation with non-blocking error handling
+        invoiceService.generateInvoiceAsync(savedOrder)
+                .handle((filePath, ex) -> {
+                    if (ex != null) {
+                        System.err.println("Invoice generation failed for order "
+                                + savedOrder.getOrderId() + ": " + ex.getMessage());
+                    }
+                    return null;
+                });
         return savedOrder;
     }
 
