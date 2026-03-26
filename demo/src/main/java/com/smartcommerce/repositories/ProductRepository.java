@@ -71,4 +71,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
             @Param("searchTerm") String searchTerm,
             Pageable pageable
     );
+
+    @Query("SELECT p FROM Product p JOIN FETCH p.category LEFT JOIN FETCH p.inventory WHERE p.productId = :id")
+    java.util.Optional<Product> findByIdWithCategory(@Param("id") int id);
 }

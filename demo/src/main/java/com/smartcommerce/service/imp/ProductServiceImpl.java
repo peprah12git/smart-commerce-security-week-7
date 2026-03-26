@@ -58,7 +58,7 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(readOnly = true)
     @Cacheable(value = "products")
     public List<Product> getAllProducts() {
-        return productRepository.findAll();
+        return productRepository.findAllWithCategoryAndInventory();
     }
 
     @Override
@@ -120,7 +120,7 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(readOnly = true)
     @Cacheable(value = "product", key = "#productId")
     public Product getProductById(int productId) {
-        return productRepository.findById(productId)
+        return productRepository.findByIdWithCategory(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
     }
 

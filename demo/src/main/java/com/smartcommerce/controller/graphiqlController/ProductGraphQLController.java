@@ -2,15 +2,15 @@ package com.smartcommerce.controller.graphiqlController;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
-import com.smartcommerce.model.Inventory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.graphql.data.method.annotation.*;
+import org.springframework.graphql.data.method.annotation.Argument;
+import org.springframework.graphql.data.method.annotation.MutationMapping;
+import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +40,7 @@ public class ProductGraphQLController {
      * GraphQL Query: product(id: Int!): Product
      */
     @QueryMapping
+    @Transactional(readOnly = true)
     public Product product(@Argument int id) {
         return productService.getProductById(id);
     }
@@ -78,6 +79,7 @@ public class ProductGraphQLController {
      * GraphQL Query: searchProducts(searchTerm: String!): [Product!]!
      */
     @QueryMapping
+    @Transactional(readOnly = true)
     public List<Product> searchProducts(@Argument String searchTerm) {
         return productService.searchProducts(searchTerm);
     }
@@ -88,6 +90,7 @@ public class ProductGraphQLController {
      * Default page size is 10
      */
     @QueryMapping
+    @Transactional(readOnly = true)
     public ProductPageGraphQL productsPaged(
             @Argument Integer page,
             @Argument Integer size,
@@ -186,32 +189,20 @@ public class ProductGraphQLController {
 
     /**
      * Resolve categoryId field for Product type
-     * Extracts category ID from Product.category
+     * Maps Product.category.categoryId to GraphQL Product.categoryId
      */
-    @BatchMapping(typeName = "Product", field = "categoryId")
-    public Map<Product, Integer> categoryId(List<Product> products) {
-        return products.stream()
-                .collect(Collectors.toMap(
-                        p -> p,
-                        p -> p.getCategory() != null ? p.getCategory().getCategoryId() : null
-                ));
+    @SchemaMapping(typeName = "Product", field = "categoryId")
+    public Integer categoryId(Product product) {
+        return product.getCategory() != null ? product.getCategory().getCategoryId() : null;
     }
 
-    @BatchMapping(typeName = "Product", field = "categoryName")
-    public Map<Product, String> categoryName(List<Product> products) {
-        return products.stream()
-                .collect(Collectors.toMap(
-                        p -> p,
-                        p -> p.getCategory() != null ? p.getCategory().getCategoryName() : null
-                ));
-    }
-    @BatchMapping(typeName = "Product", field = "inventory")
-    public Map<Product, Inventory> inventory(List<Product> products) {
-        return products.stream()
-                .collect(Collectors.toMap(
-                        p -> p,
-                        p -> p.getInventory()
-                ));
+    /**
+     * Resolve categoryName field for Product type
+     * Maps Product.category.categoryName to GraphQL Product.categoryName
+     */
+    @SchemaMapping(typeName = "Product", field = "categoryName")
+    public String categoryName(Product product) {
+        return product.getCategory() != null ? product.getCategory().getCategoryName() : null;
     }
 
 }

@@ -21,7 +21,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
 
     hikari:
-      maximum-pool-size: 30        # Up from default 10
+      maximum-pool-size: 20        # Up from default 10
       minimum-idle: 10             # Keep 10 connections warm
       connection-timeout: 20000    # 20s max wait for a connection
       idle-timeout: 300000         # Close idle connections after 5 min
@@ -32,6 +32,7 @@ spring:
     level:
       org.hibernate.SQL: DEBUG
       org.hibernate.orm.jdbc.bind: TRACE
+
 
   jpa:
     hibernate:
