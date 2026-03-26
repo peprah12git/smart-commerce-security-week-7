@@ -12,9 +12,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "Products", indexes = {
-    @Index(name = "idx_products_name", columnList = "name"),
+        @Index(name = "idx_products_name", columnList = "name"),
         @Index(name = "idx_product_price", columnList = "price"),
-    @Index(name = "idx_products_category", columnList = "category_id")
+        @Index(name = "idx_products_category", columnList = "category_id")
 })
 @Getter
 @Setter
@@ -36,7 +36,7 @@ public class Product {
     @Column(nullable = false)
     private BigDecimal price;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
 
@@ -48,7 +48,7 @@ public class Product {
     @JsonIgnore
     private List<OrderItem> orderItems;
 
-    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY) // Explicitly LAZY
     private Inventory inventory;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)

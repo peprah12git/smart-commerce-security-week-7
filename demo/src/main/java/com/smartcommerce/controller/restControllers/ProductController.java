@@ -53,7 +53,7 @@ public class ProductController {
 
     private final ProductService productService;
 
-    // Manual constructor for compatibility
+
     public ProductController(ProductService productService) {
         this.productService = productService;
     }
@@ -62,10 +62,8 @@ public class ProductController {
      * Create a new product
      * POST /api/products
      */
-    //Swagger /OpenAPI annotations
-    //@Operation: gives human readeble description of what the api does
+
     @Operation(summary = "Create a new product", description = "Creates a new product with the provided details and optional initial stock quantity")
-    // tells swagger what possible HTTP response the endpoint can return
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Product created successfully",
                     content = @Content(schema = @Schema(implementation = ProductResponse.class))),
@@ -76,7 +74,7 @@ public class ProductController {
 
     })
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping
+    @PostMapping()
     public ResponseEntity<ProductResponse> createProduct(
             @Valid @RequestBody CreateProductDTO createProductDTO) {
         Product product = new Product();

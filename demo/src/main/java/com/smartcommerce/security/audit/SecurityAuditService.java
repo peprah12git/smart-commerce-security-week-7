@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -51,10 +52,11 @@ public class SecurityAuditService {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Records and logs a security event.
+     * Records and logs a security event asynchronously (non-blocking).
      *
      * @param event the fully-constructed audit event
      */
+    @Async
     public void record(SecurityAuditEvent event) {
         // Structured log — one line per event, parseable without regex
         String logLine = buildLogLine(event);

@@ -32,15 +32,13 @@ public class InvoiceService {
 
     @Async("invoiceExecutor")
     public CompletableFuture<String> generateInvoiceAsync(Order order) {
-
-        System.out.println("Generating invoice on thread: " + Thread.currentThread().getName());
-
         try {
-            // simulate or replace with real PDF generation
+            System.out.println("Generating invoice on thread: " + Thread.currentThread().getName());
+
+            // No synchronization needed - file system handles concurrent writes atomically
             String filePath = generateInvoiceFile(order);
 
             return CompletableFuture.completedFuture(filePath);
-
         } catch (IOException | RuntimeException e) {
             return CompletableFuture.failedFuture(e);
         }
