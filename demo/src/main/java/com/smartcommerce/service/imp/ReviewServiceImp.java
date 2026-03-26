@@ -55,7 +55,7 @@ public class ReviewServiceImp implements ReviewService {
     @Override
     @Transactional(readOnly = true)
     public List<Review> getAllReviews() {
-        return reviewRepository.findAll();
+        return reviewRepository.findAllByOrderByReviewDateDesc();
     }
 
     @Override

@@ -2,10 +2,12 @@ package com.smartcommerce.security.audit;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -50,10 +52,11 @@ public class SecurityAuditService {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Records and logs a security event.
+     * Records and logs a security event asynchronously (non-blocking).
      *
      * @param event the fully-constructed audit event
      */
+    @Async
     public void record(SecurityAuditEvent event) {
         // Structured log — one line per event, parseable without regex
         String logLine = buildLogLine(event);
@@ -208,11 +211,15 @@ public class SecurityAuditService {
      */
     @Scheduled(fixedRate = 60_000)
     public void resetFrequencyCounters() {
-        if (!endpointFrequency.isEmpty()) {
-            endpointFrequency.forEach((endpoint, counter) ->
-                    log.info("eventType=ENDPOINT_FREQUENCY_SNAPSHOT endpoint=\"{}\" hits={}",
-                            endpoint, counter.get()));
+        if (!endpointFrequency.isEmpty() && log.isInfoEnabled()) {
+            // Build one log line instead of N
+            String snapshot = endpointFrequency.entrySet().stream()
+                    .map(e -> e.getKey() + "=" + e.getValue().get())
+                    .collect(Collectors.joining(", "));
+
+            log.info("eventType=ENDPOINT_FREQUENCY_SNAPSHOT endpoints=[{}]", snapshot);
         }
+
         endpointFrequency.clear();
         ipFrequency.clear();
     }

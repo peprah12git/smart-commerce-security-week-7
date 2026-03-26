@@ -3,7 +3,7 @@ type Product {
     productName: String!
     description: String
     price: Float!
-    categoryId: Int!
+    categoryId: Int
     inventory: Inventory !
     categoryName: String
     createdAt: String

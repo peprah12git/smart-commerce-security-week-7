@@ -48,14 +48,17 @@ const Login = () => {
 
     setLoading(true);
     try {
-      const response = await UserService.login(formData.email, formData.password);
+      const data = await UserService.login(formData.email, formData.password);
+      const userObj = UserService.parseUserFromResponse(data);
       
       // Store auth data
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      setUser(response.user);
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(userObj));
+      setUser(userObj);
       
-      showNotification(`Welcome back, ${response.user.name}!`, 'success');
+      showNotification(`Welcome back, ${userObj.name}!`, 'success');
       navigate('/');
     } catch (error) {
       const message = error.response?.data?.message || 'Login failed';

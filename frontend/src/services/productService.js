@@ -4,7 +4,8 @@ import graphqlService from './graphqlService';
 const ProductService = {
   // Get all products without pagination - USE GRAPHQL
   getAllProducts: async () => {
-    return await graphqlService.getAllProducts();
+    const response = await graphqlService.getAllProducts();
+    return Array.isArray(response) ? response : (response?.content || []);
   },
 
   // Get products with filtering - USE GRAPHQL

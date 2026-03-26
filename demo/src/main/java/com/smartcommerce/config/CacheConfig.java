@@ -1,16 +1,20 @@
 package com.smartcommerce.config;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Cache Configuration for Spring Cache
- * Configures in-memory caching for products, categories, and user profiles
- * Acceptance Criteria: Cache configuration enabled using @EnableCaching
+ * Configures in-memory caching with TTL (time-to-live) expiration
+ * Uses Caffeine cache for production-grade performance and memory management
+ * Prevents memory leaks from unbounded cache growth
  */
 @Configuration
 @EnableCaching
@@ -29,7 +33,7 @@ public class CacheConfig {
     @Bean(name = "appCacheManager")
     @Primary
     public CacheManager appCacheManager() {
-        ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager(
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager(
                 PRODUCTS_CACHE,
                 PRODUCT_CACHE,
                 CATEGORIES_CACHE,
@@ -38,6 +42,15 @@ public class CacheConfig {
                 USER_CACHE,
                 USER_EMAIL_CACHE,
                 INVENTORY_CACHE);
+        
+        // ✅ TTL Configuration: Prevent memory leaks
+        cacheManager.setCaffeine(
+            Caffeine.newBuilder()
+                .expireAfterWrite(60, TimeUnit.MINUTES)
+                .maximumSize(10000)
+                .recordStats()                           // Track cache hit/miss metrics
+        );
+        
         return cacheManager;
     }
 }

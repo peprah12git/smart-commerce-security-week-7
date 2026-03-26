@@ -20,6 +20,20 @@ spring:
     password: ${DB-PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+    hikari:
+      maximum-pool-size: 20        # Up from default 10
+      minimum-idle: 10             # Keep 10 connections warm
+      connection-timeout: 20000    # 20s max wait for a connection
+      idle-timeout: 300000         # Close idle connections after 5 min
+      max-lifetime: 1200000        # Recycle connections after 20 min
+      pool-name: SmartCommercePool
+
+  logging:
+    level:
+      org.hibernate.SQL: DEBUG
+      org.hibernate.orm.jdbc.bind: TRACE
+
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -34,6 +48,18 @@ spring:
             client-id: ${OAUTH_CLIENTID}
             client-secret: ${OAUTH-CLIENT-SECRET}
             scope: email, profile
+
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
 
 # ── JWT ──────────────────────────────────────────────────────────────────────
 # jwt.secret must be a Base64-encoded HMAC-SHA256 key (≥ 32 decoded bytes).
@@ -55,4 +81,27 @@ app:
       name: ${AUTH_COOKIE_NAME:AUTH_TOKEN}
       secure: ${AUTH_COOKIE_SECURE:false}
       max-age-seconds: ${AUTH_COOKIE_MAX_AGE_SECONDS:86400}
+  cache:
+    # TTL-based cache configuration to prevent memory leaks
+    products-ttl-minutes: 60           # Products expire after 60 minutes
+    categories-ttl-minutes: 120        # Categories expire after 2 hours (less frequent changes)
+    users-ttl-minutes: 30              # User data expires after 30 minutes (frequently changes)
+    inventory-ttl-minutes: 15          # Inventory expires after 15 minutes (stock changes frequently)
+    max-entries: 10000                 # Maximum entries per cache (prevents unbounded growth)
+
+notifications:
+  email:
+    enabled: ${NOTIFICATIONS_EMAIL_ENABLED:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    metrics:
+      enabled: true
+  metrics:
+    enable:
+      all: true
 

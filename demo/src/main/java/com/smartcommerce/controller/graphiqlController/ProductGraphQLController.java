@@ -40,6 +40,7 @@ public class ProductGraphQLController {
      * GraphQL Query: product(id: Int!): Product
      */
     @QueryMapping
+    @Transactional(readOnly = true)
     public Product product(@Argument int id) {
         return productService.getProductById(id);
     }
@@ -78,6 +79,7 @@ public class ProductGraphQLController {
      * GraphQL Query: searchProducts(searchTerm: String!): [Product!]!
      */
     @QueryMapping
+    @Transactional(readOnly = true)
     public List<Product> searchProducts(@Argument String searchTerm) {
         return productService.searchProducts(searchTerm);
     }
@@ -88,6 +90,7 @@ public class ProductGraphQLController {
      * Default page size is 10
      */
     @QueryMapping
+    @Transactional(readOnly = true)
     public ProductPageGraphQL productsPaged(
             @Argument Integer page,
             @Argument Integer size,
@@ -186,33 +189,20 @@ public class ProductGraphQLController {
 
     /**
      * Resolve categoryId field for Product type
-     * Extracts category ID from Product.category
+     * Maps Product.category.categoryId to GraphQL Product.categoryId
      */
     @SchemaMapping(typeName = "Product", field = "categoryId")
-    @Transactional(readOnly = true)
     public Integer categoryId(Product product) {
         return product.getCategory() != null ? product.getCategory().getCategoryId() : null;
     }
 
     /**
      * Resolve categoryName field for Product type
-     * Extracts category name from Product.category
+     * Maps Product.category.categoryName to GraphQL Product.categoryName
      */
     @SchemaMapping(typeName = "Product", field = "categoryName")
-    @Transactional(readOnly = true)
     public String categoryName(Product product) {
         return product.getCategory() != null ? product.getCategory().getCategoryName() : null;
     }
-
-    /**
-     * Resolve inventory field for Product type
-     * Fetches inventory data for the product
-     */
-    @SchemaMapping(typeName = "Product", field = "inventory")
-    @Transactional(readOnly = true)
-    public com.smartcommerce.model.Inventory inventory(Product product) {
-        return product.getInventory();
-    }
-
 
 }
