@@ -86,9 +86,10 @@ CREATE TABLE Reviews (
 CREATE INDEX idx_users_email ON Users(email);
 CREATE INDEX idx_products_category ON Products(category_id);
 CREATE INDEX idx_products_name ON Products(name);
+CREATE INDEX idx_products_price ON Products(price);  -- ✅ Added for price range filtering
 CREATE INDEX idx_inventory_product ON Inventory(product_id);
 CREATE INDEX idx_orders_user ON Orders(user_id);
-CREATE INDEX idx_orders_date ON Orders(order_date);
+CREATE INDEX idx_orders_date ON Orders(order_date DESC);  -- Updated for latest orders first
 CREATE INDEX idx_order_items_order ON OrderItems(order_id);
 CREATE INDEX idx_order_items_product ON OrderItems(product_id);
 CREATE INDEX idx_reviews_product ON Reviews(product_id);

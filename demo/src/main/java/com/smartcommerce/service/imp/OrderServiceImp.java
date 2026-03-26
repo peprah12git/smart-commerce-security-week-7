@@ -106,10 +106,11 @@ public class OrderServiceImp implements OrderService {
         order.setTotalAmount(totalAmount);
         Order savedOrder = orderRepository.save(order);
 
+        // Set order reference for all items and save as batch (not sequential)
         for (OrderItem item : orderItems) {
             item.setOrder(savedOrder);
-            orderItemRepository.save(item);
         }
+        orderItemRepository.saveAll(orderItems);  // ✅ Batch operation instead of individual saves
 
         for (OrderItem item : orderItems) {
             boolean stockReduced = inventoryService.reduceStock(

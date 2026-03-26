@@ -2,6 +2,7 @@ package com.smartcommerce.service.imp;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -23,6 +24,7 @@ import com.smartcommerce.service.serviceInterface.InventoryServiceInterface;
 public class InventoryServiceImp implements InventoryServiceInterface {
 
     private final InventoryRepository inventoryRepository;
+    private final ConcurrentHashMap<Integer, Object> productLocks = new ConcurrentHashMap<>();
 
     public InventoryServiceImp(InventoryRepository inventoryRepository) {
         this.inventoryRepository = inventoryRepository;
@@ -79,35 +81,51 @@ public class InventoryServiceImp implements InventoryServiceInterface {
 
     /**
      * Business logic: Reduce stock (for order processing)
+     * Uses synchronized locking to prevent race conditions where multiple threads
+     * could simultaneously reduce stock for the same product.
      */
     @Override
     public boolean reduceStock(int productId, int quantity) {
-        // Get fresh data from database, not cache
-        Optional<Inventory> invOpt = inventoryRepository.findByProductProductId(productId);
-        if (invOpt.isPresent()) {
-            Inventory inv = invOpt.get();
-            if (inv.getQuantityAvailable() >= quantity) {
-                int newQuantity = inv.getQuantityAvailable() - quantity;
-                return updateInventory(productId, newQuantity);
+        // Get or create per-product lock
+        Object productLock = productLocks.computeIfAbsent(productId, k -> new Object());
+        
+        // Only one thread can reduce stock for this product at a time
+        synchronized(productLock) {
+            // Get fresh data from database, not cache
+            Optional<Inventory> invOpt = inventoryRepository.findByProductProductId(productId);
+            if (invOpt.isPresent()) {
+                Inventory inv = invOpt.get();
+                if (inv.getQuantityAvailable() >= quantity) {
+                    int newQuantity = inv.getQuantityAvailable() - quantity;
+                    return updateInventory(productId, newQuantity);
+                }
             }
+            return false;
         }
-        return false;
     }
 
     /**
      * Business logic: Restock
+     * Uses synchronized locking to prevent race conditions where multiple threads
+     * could simultaneously add stock for the same product.
      */
     @Override
     @CacheEvict(value = "inventory", allEntries = true)
     public boolean addStock(int productId, int quantity) {
-        // Get fresh data from database, not cache
-        Optional<Inventory> invOpt = inventoryRepository.findByProductProductId(productId);
-        if (invOpt.isPresent()) {
-            Inventory inv = invOpt.get();
-            int newQuantity = inv.getQuantityAvailable() + quantity;
-            return updateInventory(productId, newQuantity);
+        // Get or create per-product lock
+        Object productLock = productLocks.computeIfAbsent(productId, k -> new Object());
+        
+        // Only one thread can add stock for this product at a time
+        synchronized(productLock) {
+            // Get fresh data from database, not cache
+            Optional<Inventory> invOpt = inventoryRepository.findByProductProductId(productId);
+            if (invOpt.isPresent()) {
+                Inventory inv = invOpt.get();
+                int newQuantity = inv.getQuantityAvailable() + quantity;
+                return updateInventory(productId, newQuantity);
+            }
+            return false;
         }
-        return false;
     }
 
     /**

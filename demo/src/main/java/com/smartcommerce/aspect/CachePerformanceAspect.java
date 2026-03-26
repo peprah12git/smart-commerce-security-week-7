@@ -1,17 +1,18 @@
 package com.smartcommerce.aspect;
 
+import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.cache.annotation.Cacheable;
-
-import java.lang.reflect.Method;
 
 /**
  * Aspect for monitoring cache performance.
@@ -29,8 +30,10 @@ public class CachePerformanceAspect {
 
     private static final Logger logger = LoggerFactory.getLogger(CachePerformanceAspect.class);
 
-    private static int cacheHitCount = 0;
-    private static int cacheMissCount = 0;
+    // Thread-safe counters using AtomicInteger to track cache performance metrics
+    // Prevents race conditions when multiple threads update statistics simultaneously
+    private static final AtomicInteger cacheHitCount = new AtomicInteger(0);
+    private static final AtomicInteger cacheMissCount = new AtomicInteger(0);
 
     /**
      * Threshold in milliseconds — if execution completes faster than this,
@@ -74,19 +77,19 @@ public class CachePerformanceAspect {
             long executionTime = System.currentTimeMillis() - startTime;
 
             if (executionTime < CACHE_HIT_THRESHOLD_MS) {
-                cacheHitCount++;    
+                cacheHitCount.incrementAndGet();    
                 logger.info("CACHE HIT - Method: {} | Cache: {} | ExecutionTime: {}ms | TotalHits: {}",
-                        methodName, cacheName, executionTime, cacheHitCount);
+                        methodName, cacheName, executionTime, cacheHitCount.get());
             } else {
-                cacheMissCount++;
+                cacheMissCount.incrementAndGet();
                 logger.info("CACHE MISS - Method: {} | Cache: {} | ExecutionTime: {}ms | TotalMisses: {}",
-                        methodName, cacheName, executionTime, cacheMissCount);
+                        methodName, cacheName, executionTime, cacheMissCount.get());
             }
             return result;
         } catch (Throwable ex) {
-            cacheMissCount++;
+            cacheMissCount.incrementAndGet();
             logger.warn("CACHE ERROR/MISS - Method: {} | Cache: {} | ExecutionTime: {}ms | TotalMisses: {}",
-                    methodName, cacheName, System.currentTimeMillis() - startTime, cacheMissCount);
+                    methodName, cacheName, System.currentTimeMillis() - startTime, cacheMissCount.get());
             throw ex;
         }
     }
@@ -124,8 +127,9 @@ public class CachePerformanceAspect {
 
     /**
      * Utility method to get cache hit/miss stats
+     * Thread-safe retrieval of counter values
      */
     public static String getCacheStats() {
-        return String.format("Cache Hits: %d | Cache Misses: %d", cacheHitCount, cacheMissCount);
+        return String.format("Cache Hits: %d | Cache Misses: %d", cacheHitCount.get(), cacheMissCount.get());
     }
 }

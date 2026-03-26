@@ -2,6 +2,7 @@ package com.smartcommerce.service.imp;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,8 @@ public class CartItemServiceImp implements CartItemService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final InventoryServiceInterface inventoryService;
+    // Per-user locks to prevent concurrent modification of the same user's cart
+    private final ConcurrentHashMap<Integer, Object> userCartLocks = new ConcurrentHashMap<>();
 
     @Autowired
     public CartItemServiceImp(CartItemRepository cartItemRepository,
@@ -40,32 +43,37 @@ public class CartItemServiceImp implements CartItemService {
 
     @Override
     public CartItem addToCart(int userId, int productId, int quantity) {
-        User existingUser = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        // Get or create per-user lock to ensure only one thread modifies this user's cart at a time
+        Object userLock = userCartLocks.computeIfAbsent(userId, k -> new Object());
+        
+        synchronized(userLock) {
+            User existingUser = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
-        if (quantity <= 0) {
-            throw new BusinessException("Quantity must be greater than zero");
-        }
+            if (quantity <= 0) {
+                throw new BusinessException("Quantity must be greater than zero");
+            }
 
-        CartItem existingItem = cartItemRepository.findByUser_UserIdAndProduct_ProductId(userId, productId).orElse(null);
-        int totalQuantity = quantity + (existingItem != null ? existingItem.getQuantity() : 0);
+            CartItem existingItem = cartItemRepository.findByUser_UserIdAndProduct_ProductId(userId, productId).orElse(null);
+            int totalQuantity = quantity + (existingItem != null ? existingItem.getQuantity() : 0);
 
-        if (!inventoryService.hasEnoughStock(productId, totalQuantity)) {
-            throw new BusinessException("Insufficient stock for product: " + product.getName());
-        }
+            if (!inventoryService.hasEnoughStock(productId, totalQuantity)) {
+                throw new BusinessException("Insufficient stock for product: " + product.getName());
+            }
 
-        if (existingItem != null) {
-            existingItem.setQuantity(totalQuantity);
-            return cartItemRepository.save(existingItem);
-        } else {
-            CartItem cartItem = new CartItem();
-            cartItem.setUser(existingUser);
-            cartItem.setProduct(product);
-            cartItem.setQuantity(quantity);
-            return cartItemRepository.save(cartItem);
+            if (existingItem != null) {
+                existingItem.setQuantity(totalQuantity);
+                return cartItemRepository.save(existingItem);
+            } else {
+                CartItem cartItem = new CartItem();
+                cartItem.setUser(existingUser);
+                cartItem.setProduct(product);
+                cartItem.setQuantity(quantity);
+                return cartItemRepository.save(cartItem);
+            }
         }
     }
 
@@ -96,22 +104,27 @@ public class CartItemServiceImp implements CartItemService {
 
     @Override
     public CartItem updateQuantity(int userId, int productId, int quantity) {
-        CartItem cartItem = cartItemRepository.findByUser_UserIdAndProduct_ProductId(userId, productId)
-                .orElseThrow(() -> new ResourceNotFoundException("CartItem", "userId=" + userId + ", productId", productId));
+        // Get or create per-user lock to ensure only one thread modifies this user's cart at a time
+        Object userLock = userCartLocks.computeIfAbsent(userId, k -> new Object());
+        
+        synchronized(userLock) {
+            CartItem cartItem = cartItemRepository.findByUser_UserIdAndProduct_ProductId(userId, productId)
+                    .orElseThrow(() -> new ResourceNotFoundException("CartItem", "userId=" + userId + ", productId", productId));
 
-        if (quantity <= 0) {
-            throw new BusinessException("Quantity must be greater than zero. Use removeFromCart to delete items.");
+            if (quantity <= 0) {
+                throw new BusinessException("Quantity must be greater than zero. Use removeFromCart to delete items.");
+            }
+
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+
+            if (!inventoryService.hasEnoughStock(productId, quantity)) {
+                throw new BusinessException("Insufficient stock for product: " + product.getName());
+            }
+
+            cartItem.setQuantity(quantity);
+            return cartItemRepository.save(cartItem);
         }
-
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
-
-        if (!inventoryService.hasEnoughStock(productId, quantity)) {
-            throw new BusinessException("Insufficient stock for product: " + product.getName());
-        }
-
-        cartItem.setQuantity(quantity);
-        return cartItemRepository.save(cartItem);
     }
 
     @Override
@@ -124,10 +137,15 @@ public class CartItemServiceImp implements CartItemService {
 
     @Override
     public void clearCart(int userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new ResourceNotFoundException("User", "id", userId);
+        // Get or create per-user lock to ensure only one thread modifies this user's cart at a time
+        Object userLock = userCartLocks.computeIfAbsent(userId, k -> new Object());
+        
+        synchronized(userLock) {
+            if (!userRepository.existsById(userId)) {
+                throw new ResourceNotFoundException("User", "id", userId);
+            }
+            cartItemRepository.deleteByUser_UserId(userId);
         }
-        cartItemRepository.deleteByUser_UserId(userId);
     }
 
     @Override
