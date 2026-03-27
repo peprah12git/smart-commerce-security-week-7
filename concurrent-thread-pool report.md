@@ -1,11 +1,11 @@
-# 🚀 Concurrency, Thread-Safety & Thread-Pool Tuning Report
+# Concurrency, Thread-Safety & Thread-Pool Tuning Report
 
 **Date:** 2024-02-23  
  **Scope:** Thread safety hardening, concurrent stress validation, and async executor tuning
 
 ---
 
-## 📌Overview
+## Overview
 
 This report documents:
 
@@ -115,9 +115,9 @@ This report documents:
 
 ---
 
-## 🏆 5. Final Recommended Configuration
+##  5. Final Recommended Configuration
 
-### 📦 Invoice Executor
+###  Invoice Executor
 
 ```yaml
 app:
@@ -132,7 +132,7 @@ app:
 
 ---
 
-### 📨 Notification Executor
+###  Notification Executor
 
 ```yaml
 app:
@@ -147,7 +147,7 @@ app:
 
 ---
 
-### 🗃️ Database Configuration
+###  Database Configuration
 
 ```yaml
 spring:
@@ -162,7 +162,7 @@ spring:
 
 ---
 
-## 🔒 6. Executor Safety Enhancements
+##  6. Executor Safety Enhancements
 
 ```java
 executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
