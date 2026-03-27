@@ -198,20 +198,6 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-//    /**
-//     * Get products by category (without pagination)
-//     * GET /api/products/category/{categoryName}
-//     */
-//    @Operation(summary = "Get products by category", description = "Retrieves all products belonging to a specific category")
-//    @ApiResponse(responseCode = "200", description = "Products retrieved successfully")
-//    @GetMapping("/category/{categoryName}")
-//    public ResponseEntity<List<ProductResponse>> getProductsByCategory(
-//            @Parameter(description = "Category name", required = true, example = "Electronics")
-//            @PathVariable String categoryName) {
-//        List<Product> products = productService.getProductsByCategory(categoryName);
-//        List<ProductResponse> response = ProductMapper.toProductResponseList(products);
-//        return ResponseEntity.ok(response);
-//    }
 
     /**
      * Get products by category with pagination
