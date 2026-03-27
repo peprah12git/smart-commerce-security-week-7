@@ -17,10 +17,6 @@ import org.springframework.stereotype.Component;
 /**
  * Aspect for monitoring cache performance.
  * Tracks cache hits, misses, and performance improvements.
- *
- * Uses @Order(Ordered.HIGHEST_PRECEDENCE) to ensure this aspect wraps AROUND
- * Spring's CacheInterceptor. Without this, on a cache hit the CacheInterceptor
- * short-circuits (returns the cached value without calling proceed()), so this
  * aspect would never be invoked for cache hits.
  */
 @Aspect
