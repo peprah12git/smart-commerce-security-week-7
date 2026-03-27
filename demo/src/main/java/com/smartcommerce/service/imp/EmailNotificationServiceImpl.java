@@ -1,5 +1,7 @@
-package com.smartcommerce.notification;
+package com.smartcommerce.service.imp;
 
+import com.smartcommerce.notification.events.OrderNotificationEvent;
+import com.smartcommerce.service.serviceInterface.EmailNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -35,7 +37,7 @@ public class EmailNotificationServiceImpl implements EmailNotificationService {
         log.info("Order notification email sent: orderId={} type={} recipient={}",
                 event.orderId(), event.notificationType(), event.customerEmail());
     }
-
+//generating email subject line dynamically based on the type of order event
     private String buildSubject(OrderNotificationEvent event) {
         return switch (event.notificationType()) {
             case ORDER_CREATED -> "Order received #" + event.orderId();

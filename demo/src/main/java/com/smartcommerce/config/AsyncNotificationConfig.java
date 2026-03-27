@@ -8,8 +8,7 @@ import java.util.concurrent.Executor;
 
 @Configuration
 public class AsyncNotificationConfig {
-//controls how many threads are used for sending notifications asynchronously. By defining a custom ThreadPoolTaskExecutor, we can optimize the performance
-// of our notification system and ensure that it can handle a high volume of notifications without overwhelming the system resources.
+// A custom ThreadPoolTaskExecutor to perform async process
     @Bean(name = "notificationExecutor")
     public Executor notificationExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
