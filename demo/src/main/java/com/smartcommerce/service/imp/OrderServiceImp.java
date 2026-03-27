@@ -22,7 +22,7 @@ import com.smartcommerce.model.Order;
 import com.smartcommerce.model.OrderItem;
 import com.smartcommerce.model.Product;
 import com.smartcommerce.model.User;
-import com.smartcommerce.notification.OrderNotificationEvent;
+import com.smartcommerce.notification.events.OrderNotificationEvent;
 import com.smartcommerce.notification.OrderNotificationType;
 import com.smartcommerce.repositories.OrderItemRepository;
 import com.smartcommerce.repositories.OrderRepository;
@@ -77,7 +77,7 @@ public class OrderServiceImp implements OrderService {
         if (createOrderDTO.items() == null || createOrderDTO.items().isEmpty()) {
             throw new BusinessException("Order must contain at least one item");
         }
-
+// initialize order
         Order order = new Order();
         order.setUser(user);
         order.setStatus("pending");
@@ -110,7 +110,7 @@ public class OrderServiceImp implements OrderService {
         for (OrderItem item : orderItems) {
             item.setOrder(savedOrder);
         }
-        orderItemRepository.saveAll(orderItems);  // ✅ Batch operation instead of individual saves
+        orderItemRepository.saveAll(orderItems);  //  Batch operation instead of individual saves
 
         for (OrderItem item : orderItems) {
             boolean stockReduced = inventoryService.reduceStock(
@@ -121,7 +121,7 @@ public class OrderServiceImp implements OrderService {
         }
 
         savedOrder.setOrderItems(orderItems);
-        publishOrderNotification(savedOrder, OrderNotificationType.ORDER_CREATED);
+        publishOrderNotification(savedOrder, OrderNotificationType.ORDER_CREATED); // call publishNotification and pass in the saved order.
 
         // Async invoice generation with non-blocking error handling
         invoiceService.generateInvoiceAsync(savedOrder)

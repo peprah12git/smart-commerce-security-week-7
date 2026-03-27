@@ -1,7 +1,9 @@
-package com.smartcommerce.notification;
+package com.smartcommerce.notification.listener;
 
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.smartcommerce.service.serviceInterface.EmailNotificationService;
+import com.smartcommerce.notification.events.OrderNotificationEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
