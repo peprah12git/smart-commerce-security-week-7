@@ -35,7 +35,6 @@ public class InvoiceService {
         try {
             System.out.println("Generating invoice on thread: " + Thread.currentThread().getName());
 
-            // No synchronization needed - file system handles concurrent writes atomically
             String filePath = generateInvoiceFile(order);
 
             return CompletableFuture.completedFuture(filePath);
