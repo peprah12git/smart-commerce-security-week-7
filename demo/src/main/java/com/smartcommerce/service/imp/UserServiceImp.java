@@ -221,27 +221,27 @@ public class UserServiceImp implements UserService {
         return email.matches(emailRegex);
     }
 
-    @Override
-    @Transactional
-    public User login(String email, String password) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
-        try {
-            authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, password)
-            );
-            return user;
-
-        } catch (AuthenticationException authEx) {
-            if (isLegacyPasswordMatch(user.getPassword(), password)) {
-                user.setPassword(passwordEncoder.encode(password));
-                userRepository.save(user);
+        @Override
+        @Transactional
+        public User login(String email, String password) {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+            try {
+                authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, password)
+                );
                 return user;
-            }
 
-            throw authEx;
+            } catch (AuthenticationException authEx) {
+                if (isLegacyPasswordMatch(user.getPassword(), password)) {
+                    user.setPassword(passwordEncoder.encode(password));
+                    userRepository.save(user);
+                    return user;
+                }
+
+                throw authEx;
+            }
         }
-    }
 
     private boolean isLegacyPasswordMatch(String storedPassword, String rawPassword) {
         if (storedPassword == null || rawPassword == null) {

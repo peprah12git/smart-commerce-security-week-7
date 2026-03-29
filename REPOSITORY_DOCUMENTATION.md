@@ -465,7 +465,7 @@ findByUserIdAndStatus(Long userId, String status) → WHERE userId = ? AND statu
 findByStockQuantityLessThan(Integer threshold) → WHERE stockQuantity < ?
 
 // Existence check
-existsByEmail(String email)         → SELECT COUNT(*) > 0
+existsByEmail(String email)→ SELECT COUNT(*) > 0
 ```
 
 #### Supported Keywords
