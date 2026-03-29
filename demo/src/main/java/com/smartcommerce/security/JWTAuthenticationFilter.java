@@ -13,6 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.smartcommerce.security.audit.LoginAttemptService;
 import com.smartcommerce.security.audit.SecurityAuditService;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -75,17 +76,18 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             String token = getJwtFromRequest(request);
 
             if (token != null) {
-                // ── Revoked-token reuse detection (O(1) blacklist check) ──
-                if (tokenBlacklistService.isRevoked(token)) {
-                    String username = tryExtractUsername(token);
-                    auditService.revokedTokenReuse(username, request);
-                    filterChain.doFilter(request, response);
-                    return;
-                }
+                // ── Full validation (signature + expiry) ──
+                Claims claims = jwtTokenService.validateToken(token);
+                if (claims != null) {
+                    // ── Revoked-token reuse detection (O(1) blacklist check) ──
+                    if (tokenBlacklistService.isRevoked(token)) {
+                        String username = claims.getSubject();
+                        auditService.revokedTokenReuse(username, request);
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
 
-                // ── Full validation (signature + expiry + blacklist) ──
-                if (jwtTokenService.validateToken(token)) {
-                    String email = jwtTokenService.getEmailFromToken(token);
+                    String email = claims.getSubject();
                     if (loginAttemptService.isBlocked(email)) {
                         auditService.jwtValidationFailure(request,
                                 "Account soft-locked due to repeated failed attempts — username=" + email);
@@ -94,7 +96,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                     }
 
                     // Extract roles from JWT claims (no DB lookup - 900ms saved!)
-                    List<String> roles = jwtTokenService.getRolesFromToken(token);
+                    List<String> roles = (List<String>) claims.get("roles");
                     var authorities = roles.stream()
                             .map(org.springframework.security.core.authority.SimpleGrantedAuthority::new)
                             .collect(java.util.stream.Collectors.toList());

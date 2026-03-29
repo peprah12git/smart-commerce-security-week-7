@@ -96,21 +96,19 @@ public class JwtTokenService {
     /**
      *
      * @param token the raw JWT string from the Authorization header
-     * @return true only when the token passes all three checks
+     * @return Claims if the token is valid (signature and expiry), null otherwise
      */
-    public boolean validateToken(String token) {
+    public Claims validateToken(String token) {
         try {
-            // Step 1: parse + HMAC-SHA256 signature verification
-            Jwts.parser()
-                    .verifyWith(getSigningKey())
-                    .build()
-                    .parseSignedClaims(token);
-
+            // Step 1: parse + HMAC-SHA256 signature verification and get claims
+            Claims claims = extractAllClaims(token);
             // Step 2: expiry check
-            // Step 3: blacklist check — O(1) HashMap.containsKey()
-            return !isTokenExpired(token) && !tokenBlacklistService.isRevoked(token);
+            if (isTokenExpired(claims)) {
+                return null;
+            }
+            return claims;
         } catch (RuntimeException e) {
-            return false;
+            return null;
         }
     }
 
@@ -139,7 +137,7 @@ public class JwtTokenService {
         return extractClaim(token, Claims::getSubject);
     }
 
-    @SuppressWarnings("unchecked")
+
     public List<String> getRolesFromToken(String token) {
         return extractClaim(token, claims -> (List<String>) claims.get("roles"));
     }
@@ -152,8 +150,8 @@ public class JwtTokenService {
     // Private helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private boolean isTokenExpired(String token) {
-        return extractClaim(token, Claims::getExpiration).before(new Date());
+    private boolean isTokenExpired(Claims claims) {
+        return claims.getExpiration().before(new Date());
     }
 
     private Claims extractAllClaims(String token) {
