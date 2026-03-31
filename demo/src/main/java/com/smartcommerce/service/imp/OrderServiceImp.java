@@ -77,7 +77,6 @@ public class OrderServiceImp implements OrderService {
         if (createOrderDTO.items() == null || createOrderDTO.items().isEmpty()) {
             throw new BusinessException("Order must contain at least one item");
         }
-// initialize order
         Order order = new Order();
         order.setUser(user);
         order.setStatus("pending");

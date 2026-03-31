@@ -2,6 +2,7 @@ package com.smartcommerce.controller.restControllers;
 
 import java.util.List;
 
+import com.smartcommerce.dtos.response.ReviewResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -64,21 +65,43 @@ public class ReviewController {
         return ResponseEntity.ok(review);
     }
 
-    @Operation(summary = "Get all reviews for a product")
-    @GetMapping("/product/{productId}")
-    public ResponseEntity<List<Review>> getReviewsByProductId(@PathVariable int productId) {
-        List<Review> reviews = reviewService.getReviewsByProductId(productId);
-        return ResponseEntity.ok(reviews);
-    }
 
-    @Operation(summary = "Get my reviews",
-            description = "Retrieves all reviews submitted by the authenticated user")
-    @PreAuthorize("isAuthenticated()")
+
+//    @Operation(summary = "Get all reviews for a product")
+//    @GetMapping("/product/{productId}")
+//    public ResponseEntity<List<Review>> getReviewsByProductId(@PathVariable int productId) {
+//        List<Review> reviews = reviewService.getReviewsByProductId(productId);
+//        return ResponseEntity.ok(reviews);
+//    }
+@GetMapping("/product/{productId}")
+public ResponseEntity<List<ReviewResponse>> getReviewsByProductId(@PathVariable int productId) {
+    return ResponseEntity.ok(
+            reviewService.getReviewsByProductId(productId)
+                    .stream()
+                    .map(ReviewResponse::from)
+                    .toList()
+    );
+}
+
+//    @Operation(summary = "Get my reviews",
+//            description = "Retrieves all reviews submitted by the authenticated user")
+//    @PreAuthorize("isAuthenticated()")
+//    @GetMapping("/me")
+//    public ResponseEntity<List<Review>> getMyReviews() {
+//        int userId = securityUtils.getCurrentUserId();
+//        List<Review> reviews = reviewService.getReviewsByUserId(userId);
+//        return ResponseEntity.ok(reviews);
+//    }
+
     @GetMapping("/me")
-    public ResponseEntity<List<Review>> getMyReviews() {
+    public ResponseEntity<List<ReviewResponse>> getMyReviews() {
         int userId = securityUtils.getCurrentUserId();
-        List<Review> reviews = reviewService.getReviewsByUserId(userId);
-        return ResponseEntity.ok(reviews);
+        return ResponseEntity.ok(
+                reviewService.getReviewsByUserId(userId)
+                        .stream()
+                        .map(ReviewResponse::from)
+                        .toList()
+        );
     }
 
     @Operation(summary = "Get all reviews by a user")
