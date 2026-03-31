@@ -31,16 +31,16 @@ const Footer = () => {
           </div>
           <div className="contact-item">
             <Phone size={16} />
-            <span>+1 (555) 123-4567</span>
+            <span>+233 (59) 722-3625</span>
           </div>
           <div className="contact-item">
             <MapPin size={16} />
-            <span>123 Commerce St, City</span>
+            <span>123 West Hills, Accra</span>
           </div>
         </div>
       </div>
       <div className="footer-bottom">
-        <p>&copy; 2024 SmartCommerce. All rights reserved.</p>
+        <p>&copy; 2025 SmartCommerce. All rights reserved.</p>
       </div>
     </footer>
   );

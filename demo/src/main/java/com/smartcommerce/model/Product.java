@@ -44,14 +44,14 @@ public class Product {
     @Column(name = "created_at", updatable = false)
     private Timestamp createdAt;
 
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     private List<OrderItem> orderItems;
 
     @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY) // Explicitly LAZY
     private Inventory inventory;
 
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     private List<Review> reviews;
 }
