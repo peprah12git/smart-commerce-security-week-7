@@ -8,7 +8,7 @@ March 2026 · Profiling Tools: JetBrains Profiler · VisualVM · IntelliJ
 Profiler
 
 +-----------------------+-----------------------+-----------------------+
-| **3**                 | **98%+**              | **61%**               |
+|                       | **98%+**              | **61%**               |
 |                       |                       |                       |
 | Bottleneck Areas      | Peak Latency          | AOP Overhead          |
 |                       | Reduction             | Eliminated            |
