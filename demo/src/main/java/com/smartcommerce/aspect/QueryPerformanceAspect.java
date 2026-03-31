@@ -18,15 +18,14 @@ import org.springframework.stereotype.Component;
 public class QueryPerformanceAspect {
 
     private static final Logger logger = LoggerFactory.getLogger(QueryPerformanceAspect.class);
-    private static final long SLOW_QUERY_THRESHOLD = 100;
+    private static final long SLOW_QUERY_THRESHOLD = 500; // raise from 100ms to 500ms
 
     /**
-     * Monitor ALL repository and service layer queries with one pointcut
+     * Monitor repository layer only — where actual DB queries happen
+     * Removing service layer avoids double-counting and self-measuring overhead
      */
-    @Around("execution(* com.smartcommerce.repositories..*(..))" +
-            " || execution(* com.smartcommerce.service..*(..))")
+    @Around("execution(* com.smartcommerce.repositories..*(..))")
     public Object monitorQueryPerformance(ProceedingJoinPoint joinPoint) throws Throwable {
-        String methodName = joinPoint.getSignature().toShortString();
         long startTime = System.currentTimeMillis();
 
         try {
@@ -35,7 +34,10 @@ public class QueryPerformanceAspect {
             long executionTime = System.currentTimeMillis() - startTime;
 
             if (executionTime > SLOW_QUERY_THRESHOLD) {
-                logger.warn("SLOW QUERY - {}: {}ms", methodName, executionTime);
+                // Compute method name only when actually logging
+                logger.warn("SLOW QUERY - {}: {}ms",
+                        joinPoint.getSignature().toShortString(),
+                        executionTime);
             }
         }
     }

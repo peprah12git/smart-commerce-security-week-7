@@ -29,7 +29,7 @@ public class JwtTokenService {
     @Value("${jwt.expiration:86400000}")
     private long jwtExpiration;
 
-    // Cache the signing key to avoid regenerating it on every token operation (~10ms saved)
+    // Cache the signing key to avoid regenerating it on every token operation
     private SecretKey cachedSigningKey;
 
     // (TokenBlacklistService has no dependency on JwtTokenService)
