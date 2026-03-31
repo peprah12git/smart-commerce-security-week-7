@@ -28,7 +28,7 @@ Through a systematic investigation of the controller, service, repository, model
 
 ## 3. Root Causes Identified
 
-### 3.1 🔴 Serialization-Triggered N+1 (Fixed)
+### 3.1  Serialization-Triggered N+1 (Fixed)
 
 **Location:** `ReviewController.getReviewsByProductId`
 
@@ -65,7 +65,7 @@ public ResponseEntity<List<ReviewResponse>> getReviewsByProductId(@PathVariable 
 
 ---
 
-### 3.2 🔴 EAGER Loading on `@OneToMany` Collections (Fixed)
+### 3.2  EAGER Loading on `@OneToMany` Collections (Fixed)
 
 **Location:** `Product.java`, `User.java`
 
@@ -125,7 +125,7 @@ private List<Review> reviews;
 
 ---
 
-### 3.3 🔴 `QueryPerformanceAspect` — Self-Measuring Double Interception (Pending)
+### 3.3  `QueryPerformanceAspect` — Self-Measuring Double Interception (Pending)
 
 **Location:** `com.smartcommerce.aspect.QueryPerformanceAspect`
 
@@ -199,12 +199,12 @@ private static final long SLOW_QUERY_THRESHOLD = 500; // raised from 100ms
 
 | Priority | Action | Status | Impact |
 |---|---|---|---|
-| 🔴 | Use `ReviewResponse` DTO in all read endpoints | ✅ Done | -83% response time |
-| 🔴 | Add `FetchType.LAZY` to all `@OneToMany` | ✅ Done | -87.5% vs baseline |
-| 🔴 | Fix `QueryPerformanceAspect` pointcut and threshold | 🔧 In Progress | Eliminates remaining ~2,600ms |
-| 🟡 | Restrict `getAllReviews` to `ADMIN`, add pagination | ⬜ Pending | Security + stability |
-| 🟡 | Fix detached entity in `createReview` | ⬜ Pending | Correctness |
-| 🟡 | Remove duplicate `getReviewsByUserId` endpoint | ⬜ Pending | Security |
+| 🔴 | Use `ReviewResponse` DTO in all read endpoints |  Done | -83% response time |
+| 🔴 | Add `FetchType.LAZY` to all `@OneToMany` |  Done | -87.5% vs baseline |
+| 🔴 | Fix `QueryPerformanceAspect` pointcut and threshold |  In Progress | Eliminates remaining ~2,600ms |
+| 🟡 | Restrict `getAllReviews` to `ADMIN`, add pagination |  Pending | Security + stability |
+| 🟡 | Fix detached entity in `createReview` |  Pending | Correctness |
+| 🟡 | Remove duplicate `getReviewsByUserId` endpoint |  Pending | Security |
 
 
 ---
