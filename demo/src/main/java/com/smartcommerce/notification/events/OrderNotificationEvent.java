@@ -15,6 +15,3 @@ public record OrderNotificationEvent(
         OrderNotificationType notificationType
 ) {}
 
-
-//publisher is the component that creates and dispatches the event
-//Listener listens for a specific type of even and performs an action when the event is published.
